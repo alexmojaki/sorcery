@@ -2,30 +2,54 @@ import ast
 import operator
 import sys
 from functools import lru_cache
+from pprint import pprint
 
+from asttokens import ASTTokens
 from littleutils import file_to_string, only
-
-
-def calling_stmt(context=1):
-    frame = sys._getframe(context)
-    filename = frame.f_code.co_filename
-    lineno = frame.f_lineno
-    return calling_stmt_at(filename, lineno)
+from cached_property import cached_property
 
 
 @lru_cache()
-def calling_stmt_at(filename, lineno):
-    source = file_to_string(filename)
-    tree = ast.parse(source)
-    stmts = [node for node in ast.walk(tree)
-             if isinstance(node, ast.stmt) and
-             0 <= getattr(node, 'lineno', -1) <= lineno]
-    return max(stmts, key=lambda stmt: stmt.lineno)
+class FileInfo(object):
+    def __init__(self, path):
+        self.source = file_to_string(path)
+        self.tree = ast.parse(self.source, filename=path)
+        self.path = path
+
+    @cached_property
+    def tokens(self):
+        return ASTTokens(self.source, tree=self.tree, filename=self.path)
+
+    @lru_cache()
+    def stmt_at_line(self, lineno):
+        stmts = [node for node in ast.walk(self.tree)
+                 if isinstance(node, ast.stmt) and
+                 0 <= getattr(node, 'lineno', -1) <= lineno]
+        return max(stmts, key=lambda stmt: stmt.lineno)
 
 
-def assigned_names(context=1):
-    stmt = calling_stmt(context=context + 2)
-    return assigned_names_in_stmt(stmt)
+class FrameInfo(object):
+
+    def __init__(self, context):
+        self.inner_frame = sys._getframe(context)
+        self.frame = self.inner_frame.f_back
+
+    @property
+    def stmt(self):
+        return self.file_info.stmt_at_line(self.frame.f_lineno)
+
+    @property
+    def assigned_names(self):
+        return assigned_names_in_stmt(self.stmt)
+
+    @property
+    def potential_calls(self):
+        code_name = self.inner_frame.f_code.co_name
+        return get_potential_calls_in_stmt(self.stmt, code_name)
+
+    @property
+    def file_info(self):
+        return FileInfo(self.frame.f_code.co_filename)
 
 
 @lru_cache()
@@ -64,7 +88,7 @@ def unpack_attrs(x, context=1):
 
 
 def _unpack(x, context, getter):
-    stmt = calling_stmt(context + 2)
+    stmt = FrameInfo(context + 1).stmt
     names = assigned_names_in_stmt(stmt)
     if isinstance(stmt, ast.Assign):
         return [getter(x, name) for name in names]
@@ -73,15 +97,54 @@ def _unpack(x, context, getter):
                 for d in x)
 
 
+@lru_cache()
+def get_potential_calls_in_stmt(stmt, code_name):
+    return [node for node in ast.walk(stmt)
+            if isinstance(node, ast.Call) and
+            isinstance(node.func, ast.Name) and
+            node.func.id == code_name]
+
+
+def args_with_source(args, context=2):
+    frame_info = FrameInfo(context)
+    call = only(frame_info.potential_calls)
+    tokens = frame_info.file_info.tokens
+    return [
+        (tokens.get_text(arg), value)
+        for arg, value in zip(call.args, args)
+    ]
+
+
+def dict_of(*args):
+    frame_info = FrameInfo(1)
+    call = only(frame_info.potential_calls)
+    return {
+        arg.id: value
+        for arg, value in zip(call.args, args)
+    }
+
+
+def print_args(*args):
+    for source, arg in args_with_source(args):
+        print(source + ' =')
+        pprint(arg)
+        print()
+
+
 def main():
     main.foo, bar = unpack_dict(
         dict(foo=7, bar=8)
     )
     print(main.foo, bar)
 
+    x = None
     for x, z in unpack_dict_get(
             [dict(x=1, y=2), dict(x=3, y=4)]):
         print(x, z)
+
+    print_args(1 + 2,
+               3 + 4)
+    print(dict_of(main, bar, x))
 
 
 main()
