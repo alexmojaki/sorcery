@@ -4,7 +4,4 @@ prefix
 upper
 annassign
 
-functions/methods from names
-delegate to attribute
-
 comprehensions

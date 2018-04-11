@@ -129,6 +129,43 @@ def print_args(*args):
         print(source + ' =')
         pprint(arg)
         print()
+    return args and args[0]
+
+
+def call_with_name(func):
+    def make_func(name):
+        return lambda self, *args, **kwargs: func(self, name, *args, **kwargs)
+
+    return [
+        make_func(name)
+        for name in FrameInfo(1).assigned_names
+    ]
+
+
+def delegate_to_attr(attr_name):
+    def make_func(name):
+        return property(lambda self: getattr(getattr(self, attr_name), name))
+
+    return [
+        make_func(name)
+        for name in FrameInfo(1).assigned_names
+    ]
+
+
+class MyListWrapper(object):
+    def __init__(self, lst):
+        self.list = lst
+
+    def _make_new_wrapper(self, method_name, *args, **kwargs):
+        method = getattr(self.list, method_name)
+        new_list = method(*args, **kwargs)
+        return type(self)(new_list)
+
+    append, extend, clear, __repr__, __str__, __eq__, __hash__, \
+    __contains__, __len__, remove, insert, pop, index, count, \
+    sort, __iter__, reverse, __iadd__ = delegate_to_attr('list')
+
+    copy, __add__, __radd__, __mul__, __rmul__ = call_with_name(_make_new_wrapper)
 
 
 def main():
@@ -145,6 +182,12 @@ def main():
     print_args(1 + 2,
                3 + 4)
     print(dict_of(main, bar, x))
+
+    lst = MyListWrapper([1, 2, 3])
+    lst.append(4)
+    lst.extend([1, 2])
+    print(type((lst + [5]).copy()))
+
 
 
 main()
