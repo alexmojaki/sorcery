@@ -1,12 +1,18 @@
 import ast
 import operator
 import sys
-from functools import lru_cache
 from pprint import pprint
 
 from asttokens import ASTTokens
 from littleutils import file_to_string, only
 from cached_property import cached_property
+
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
+__version__ = '0.0.1'
 
 
 @lru_cache()
@@ -115,13 +121,15 @@ def args_with_source(args, context=2):
     ]
 
 
-def dict_of(*args):
+def dict_of(*args, **kwargs):
     frame_info = FrameInfo(1)
     call = only(frame_info.potential_calls)
-    return {
+    result = {
         arg.id: value
         for arg, value in zip(call.args, args)
     }
+    result.update(kwargs)
+    return result
 
 
 def print_args(*args):
@@ -181,13 +189,12 @@ def main():
 
     print_args(1 + 2,
                3 + 4)
-    print(dict_of(main, bar, x))
+    print(dict_of(main, bar, x, a=1, y=2))
 
     lst = MyListWrapper([1, 2, 3])
     lst.append(4)
     lst.extend([1, 2])
     print(type((lst + [5]).copy()))
-
 
 
 main()
