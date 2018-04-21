@@ -3,6 +3,7 @@ import operator
 import sys
 from pprint import pprint
 
+import wrapt
 from asttokens import ASTTokens
 from littleutils import file_to_string, only
 from cached_property import cached_property
@@ -10,6 +11,7 @@ from cached_property import cached_property
 try:
     from functools import lru_cache
 except ImportError:
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
     from backports.functools_lru_cache import lru_cache
 
 __version__ = '0.0.1'
@@ -36,9 +38,10 @@ class FileInfo(object):
 
 class FrameInfo(object):
 
-    def __init__(self, context):
+    def __init__(self, context, function_name=None):
         self.inner_frame = sys._getframe(context)
         self.frame = self.inner_frame.f_back
+        self.function_name = function_name or self.inner_frame.f_code.co_name
 
     @property
     def stmt(self):
@@ -50,8 +53,7 @@ class FrameInfo(object):
 
     @property
     def potential_calls(self):
-        code_name = self.inner_frame.f_code.co_name
-        return get_potential_calls_in_stmt(self.stmt, code_name)
+        return get_potential_calls_in_stmt(self.stmt, self.function_name)
 
     @property
     def file_info(self):
@@ -123,6 +125,10 @@ def args_with_source(args, context=2):
 
 def dict_of(*args, **kwargs):
     frame_info = FrameInfo(1)
+    return dict_of_for_context(frame_info, *args, **kwargs)
+
+
+def dict_of_for_context(frame_info, *args, **kwargs):
     call = only(frame_info.potential_calls)
     result = {
         arg.id: value
@@ -160,6 +166,18 @@ def delegate_to_attr(attr_name):
     ]
 
 
+def magic_kwargs(func):
+    @wrapt.decorator
+    def wrapper(_, instance, args, kwargs):
+        if instance is not None:
+            raise TypeError('magic_kwargs can only be applied to free functions, not methods')
+        frame_info = FrameInfo(1, function_name=func.__name__)
+        full_kwargs = dict_of_for_context(frame_info, *args, **kwargs)
+        return func(**full_kwargs)
+
+    return wrapper(func)
+
+
 class MyListWrapper(object):
     def __init__(self, lst):
         self.list = lst
@@ -195,6 +213,12 @@ def main():
     lst.append(4)
     lst.extend([1, 2])
     print(type((lst + [5]).copy()))
+
+    @magic_kwargs
+    def test_magic_kwargs(**kwargs):
+        print(kwargs)
+
+    test_magic_kwargs(bar, x, a=3, b=5)
 
 
 main()

@@ -20,6 +20,7 @@ install_requires = [
     'littleutils',
     'cached_property',
     'asttokens',
+    'wrapt',
 ]
 
 if version_info[0] == 2:
