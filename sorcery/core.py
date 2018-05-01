@@ -73,7 +73,7 @@ class FrameInfo(object):
 
     @property
     def assigned_names(self):
-        return assigned_names_in_stmt(self.stmt)
+        return nearest_assigned_names(self.call)
 
     @property
     def file_info(self):
@@ -88,17 +88,23 @@ def stmt_containing_node(node):
 
 
 @lru_cache()
-def assigned_names_in_stmt(stmt):
-    if isinstance(stmt, ast.Assign):
-        target = only(stmt.targets)
-    elif isinstance(stmt, ast.For):
-        target = stmt.target
+def nearest_assigned_names(node):
+    while not isinstance(node, (ast.stmt, ast.comprehension)):
+        node = node.parent
+
+    if isinstance(node, ast.Assign):
+        target = only(node.targets)
+    elif isinstance(node, (ast.For, ast.comprehension)):
+        target = node.target
     else:
-        raise TypeError('Assignment or for loop required, found %r' % stmt)
+        raise TypeError('No assignment found')
+
     if isinstance(target, (ast.Tuple, ast.List)):
-        return tuple(_target_name(x) for x in target.elts)
+        names = tuple(_target_name(x) for x in target.elts)
     else:
-        return _target_name(target),
+        names = (_target_name(target),)
+
+    return names, node
 
 
 def _target_name(target):

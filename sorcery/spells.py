@@ -5,7 +5,7 @@ from pprint import pprint
 
 import wrapt
 
-from sorcery.core import assigned_names_in_stmt, spell
+from sorcery.core import spell
 
 _NO_DEFAULT = object()
 
@@ -23,9 +23,8 @@ def unpack_attrs(frame_info, x):
 
 
 def _unpack(frame_info, x, getter):
-    stmt = frame_info.stmt
-    names = assigned_names_in_stmt(stmt)
-    if isinstance(stmt, ast.Assign):
+    names, node = frame_info.assigned_names
+    if isinstance(node, ast.Assign):
         return [getter(x, name) for name in names]
     else:  # for loop
         return ([getter(d, name) for name in names]
@@ -67,7 +66,7 @@ def call_with_name(frame_info, func):
 
     return [
         make_func(name)
-        for name in frame_info.assigned_names
+        for name in frame_info.assigned_names[0]
     ]
 
 
@@ -78,7 +77,7 @@ def delegate_to_attr(frame_info, attr_name):
 
     return [
         make_func(name)
-        for name in frame_info.assigned_names
+        for name in frame_info.assigned_names[0]
     ]
 
 

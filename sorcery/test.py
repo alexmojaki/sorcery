@@ -30,6 +30,14 @@ def main():
             [dict(x=1, y=2), dict(z=3, y=4)], default=999):
         print(x, z)
 
+    assert [(x, z) for x, z in
+            spells.unpack_keys(
+                [dict(x=1, y=2), dict(z=3, y=4)],
+                default=999)] == [(1, 999), (999, 3)]
+
+    x, y = map(int, spells.unpack_keys(dict(x='1', y='2')))
+    spells.print_args(x + y)
+
     spells.print_args(1 + 2,
                       3 + 4)
 
