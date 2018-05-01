@@ -6,8 +6,6 @@ prefix
 annassign
 comprehensions
 
-retry
-
 assert no *args in dict_of
 
 magic name mapping
