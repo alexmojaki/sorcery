@@ -81,6 +81,44 @@ def delegate_to_attr(frame_info, attr_name):
     ]
 
 
+class _Nothing(object):
+    def __init__(self, count):
+        self.__count = count
+
+    def __getattribute__(self, item):
+        if item == '_Nothing__count':
+            return object.__getattribute__(self, item)
+        return _Nothing.__op(self)
+
+    def __op(self, *_args, **_kwargs):
+        self.__count -= 1
+        if self.__count == 0:
+            return None
+
+        return self
+
+    __getitem__ = __call__ = __op
+
+
+@spell
+def maybe(frame_info, x):
+    node = frame_info.call
+    count = 0
+    while True:
+        parent = node.parent
+        if not (isinstance(parent, ast.Attribute) or
+                isinstance(parent, ast.Call) and parent.func is node or
+                isinstance(parent, ast.Subscript) and parent.value is node):
+            break
+        count += 1
+        node = parent
+
+    if count == 0 or x is not None:
+        return x
+
+    return _Nothing(count)
+
+
 def magic_kwargs(func):
     @wrapt.decorator
     def wrapper(wrapped, _instance, args, kwargs):
@@ -101,6 +139,7 @@ class Module(object):
     call_with_name = call_with_name
     delegate_to_attr = delegate_to_attr
     magic_kwargs = magic_kwargs
+    maybe = maybe
 
 
 sys.modules[__name__] = Module

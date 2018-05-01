@@ -1,4 +1,4 @@
-from sorcery.spells import magic_kwargs
+from sorcery.spells import magic_kwargs, maybe
 from sorcery import spells
 
 
@@ -55,6 +55,15 @@ def main():
         return list(kwargs.items())
 
     assert test_magic_kwargs(bar, x, a=3, b=5) == [('bar', bar), ('x', x), ('a', 3), ('b', 5)]
+
+    n = None
+    assert maybe(n) is None
+    assert maybe(n).a.b.c()[4]().asd.asd()() is None
+    assert maybe(0) is 0
+    assert maybe({'a': 3})['a'] is 3
+    assert maybe({'a': {'b': 3}})['a']['b'] is 3
+    assert maybe({'a': {'b': 3}})['a']['b'] + 2 == 5
+    assert maybe({'a': {'b': None}})['a']['b'] is None
 
 
 main()
