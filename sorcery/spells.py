@@ -1,5 +1,6 @@
 import ast
 import operator
+from contextlib import contextmanager
 from pprint import pprint
 from itertools import chain
 import wrapt
@@ -138,22 +139,30 @@ def select_from(frame_info, sql, params=(), cursor=None, where=None, close=True)
         sql += ' WHERE ' + ' AND '.join('%s = ?' % name for name in where_names)
         params = where
 
-    print(sql)
     cursor.execute(sql, params)
-    if isinstance(node, ast.Assign):
+
+    def unpack(row):
+        if len(row) == 1:
+            return row[0]
+        else:
+            return row
+
+    @contextmanager
+    def maybe_close():
         try:
-            return cursor.fetchone()
+            yield
         finally:
             if close:
                 cursor.close()
+
+    if isinstance(node, ast.Assign):
+        with maybe_close():
+            return unpack(cursor.fetchone())
     else:
         def vals():
-            try:
+            with maybe_close():
                 for row in cursor:
-                    yield row
-            finally:
-                if close:
-                    cursor.close()
+                    yield unpack(row)
 
         return vals()
 

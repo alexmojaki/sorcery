@@ -75,7 +75,7 @@ def main():
 
     assert [(3, 5), (1, 8)] == [(y, x) for y, x in spells.select_from('points', close=False)]
     y = 1
-    x, y = spells.select_from('points', where=[y])
+    x = spells.select_from('points', where=[y])
     assert (x, y) == (8, 1)
 
 
