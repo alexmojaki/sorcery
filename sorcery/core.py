@@ -50,11 +50,17 @@ class FileInfo(object):
 
         raise ValueError('Found %s possible calls to %s' % (len(options), name))
 
+    @lru_cache()
+    def _calls_in_stmt_at_line(self, lineno):
+        stmt = only({stmt_containing_node(node)
+                     for node in self.nodes_by_line[lineno]})
+        return [node for node in ast.walk(stmt)
+                if isinstance(node, ast.Call) and
+                isinstance(node.func, ast.Name)]
+
     def _plain_call_at(self, frame, val):
-        return only([node for node in self.nodes_by_line[frame.f_lineno]
-                     if isinstance(node, ast.Call) and
-                     isinstance(node.func, ast.Name) and
-                     _resolve_var(frame, node.func.id) == val])
+        return only([node for node in self._calls_in_stmt_at_line(frame.f_lineno)
+                     if _resolve_var(frame, node.func.id) == val])
 
 
 file_info = lru_cache()(FileInfo)
