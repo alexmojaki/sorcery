@@ -1,10 +1,11 @@
 import ast
 import operator
 from pprint import pprint
-
+from itertools import chain
 import wrapt
+from littleutils import only
 
-from sorcery.core import spell, wrap_module
+from sorcery.core import spell, wrap_module, node_names
 
 _NO_DEFAULT = object()
 
@@ -116,6 +117,45 @@ def maybe(frame_info, x):
         return x
 
     return _Nothing(count)
+
+
+@spell
+def select_from(frame_info, sql, params=(), cursor=None, where=None, close=True):
+    if cursor is None:
+        frame = frame_info.frame
+        cursor = only(c for c in chain(frame.f_locals.values(),
+                                       frame.f_globals.values())
+                      if 'cursor' in str(type(c).__mro__).lower() and
+                      callable(getattr(c, 'execute', None)))
+    names, node = frame_info.assigned_names
+    sql = 'SELECT %s FROM %s' % (', '.join(names), sql)
+
+    if where:
+        where_arg = only(kw.value for kw in frame_info.call.keywords
+                         if kw.arg == 'where')
+        where_names = node_names(where_arg)
+        assert len(where_names) == len(where)
+        sql += ' WHERE ' + ' AND '.join('%s = ?' % name for name in where_names)
+        params = where
+
+    print(sql)
+    cursor.execute(sql, params)
+    if isinstance(node, ast.Assign):
+        try:
+            return cursor.fetchone()
+        finally:
+            if close:
+                cursor.close()
+    else:
+        def vals():
+            try:
+                for row in cursor:
+                    yield row
+            finally:
+                if close:
+                    cursor.close()
+
+        return vals()
 
 
 def magic_kwargs(func):

@@ -1,3 +1,5 @@
+import sqlite3
+
 from sorcery.spells import magic_kwargs, maybe, call_with_name, delegate_to_attr, unpack_keys
 from sorcery import spells
 
@@ -64,6 +66,17 @@ def main():
     assert maybe({'a': {'b': 3}})['a']['b'] is 3
     assert maybe({'a': {'b': 3}})['a']['b'] + 2 == 5
     assert maybe({'a': {'b': None}})['a']['b'] is None
+
+    conn = sqlite3.connect(':memory:')
+    c = conn.cursor()
+    c.execute('CREATE TABLE points (x INT, y INT)')
+    c.execute("INSERT INTO points VALUES (5, 3), (8, 1)")
+    conn.commit()
+
+    assert [(3, 5), (1, 8)] == [(y, x) for y, x in spells.select_from('points', close=False)]
+    y = 1
+    x, y = spells.select_from('points', where=[y])
+    assert (x, y) == (8, 1)
 
 
 main()

@@ -105,21 +105,25 @@ def nearest_assigned_names(node):
     else:
         raise TypeError('No assignment found')
 
-    if isinstance(target, (ast.Tuple, ast.List)):
-        names = tuple(_target_name(x) for x in target.elts)
-    else:
-        names = (_target_name(target),)
-
+    names = node_names(target)
     return names, node
 
 
-def _target_name(target):
-    if isinstance(target, ast.Name):
-        return target.id
-    elif isinstance(target, ast.Attribute):
-        return target.attr
+def node_names(node):
+    if isinstance(node, (ast.Tuple, ast.List)):
+        names = tuple(node_name(x) for x in node.elts)
     else:
-        raise TypeError('Cannot extract name from %s' % target)
+        names = (node_name(node),)
+    return names
+
+
+def node_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        return node.attr
+    else:
+        raise TypeError('Cannot extract name from %s' % node)
 
 
 def _resolve_var(frame, name):
