@@ -1,11 +1,10 @@
 import ast
 import operator
-import sys
 from pprint import pprint
 
 import wrapt
 
-from sorcery.core import spell
+from sorcery.core import spell, wrap_module
 
 _NO_DEFAULT = object()
 
@@ -130,16 +129,4 @@ def magic_kwargs(func):
     return spell(wrapper(func))
 
 
-class Module(object):
-    unpack_keys = unpack_keys
-    unpack_attrs = unpack_attrs
-    args_with_source = args_with_source
-    dict_of = dict_of
-    print_args = print_args
-    call_with_name = call_with_name
-    delegate_to_attr = delegate_to_attr
-    magic_kwargs = magic_kwargs
-    maybe = maybe
-
-
-sys.modules[__name__] = Module
+wrap_module(__name__, globals())

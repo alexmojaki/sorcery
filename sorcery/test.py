@@ -1,4 +1,4 @@
-from sorcery.spells import magic_kwargs, maybe
+from sorcery.spells import magic_kwargs, maybe, call_with_name, delegate_to_attr, unpack_keys
 from sorcery import spells
 
 
@@ -13,20 +13,20 @@ class MyListWrapper(object):
 
     append, extend, clear, __repr__, __str__, __eq__, __hash__, \
     __contains__, __len__, remove, insert, pop, index, count, \
-    sort, __iter__, reverse, __iadd__ = spells.delegate_to_attr('list')
+    sort, __iter__, reverse, __iadd__ = delegate_to_attr('list')
 
-    copy, __add__, __radd__, __mul__, __rmul__ = spells.call_with_name(_make_new_wrapper)
+    copy, __add__, __radd__, __mul__, __rmul__ = call_with_name(_make_new_wrapper)
 
 
 def main():
-    main.foo, bar = spells.unpack_keys(
+    main.foo, bar = unpack_keys(
         dict(foo=7, bar=8)
     )
     assert main.foo == 7
     assert bar == 8
 
     x = None
-    for x, z in spells.unpack_keys(
+    for x, z in unpack_keys(
             [dict(x=1, y=2), dict(z=3, y=4)], default=999):
         print(x, z)
 

@@ -1,6 +1,7 @@
 import ast
 import sys
 
+import wrapt
 from asttokens import ASTTokens
 from cached_property import cached_property
 from collections import defaultdict
@@ -157,3 +158,13 @@ class Spell(object):
 
 
 spell = Spell
+
+
+def wrap_module(module_name, globs):
+    class ModuleWrapper(wrapt.ObjectProxy):
+        pass
+
+    for name, value in globs.items():
+        if isinstance(value, Spell):
+            setattr(ModuleWrapper, name, value)
+    sys.modules[module_name] = ModuleWrapper(sys.modules[module_name])
