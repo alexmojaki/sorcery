@@ -73,7 +73,7 @@ def main():
     c.execute("INSERT INTO points VALUES (5, 3), (8, 1)")
     conn.commit()
 
-    assert [(3, 5), (1, 8)] == [(y, x) for y, x in spells.select_from('points', close=False)]
+    assert [(3, 5), (1, 8)] == [(y, x) for y, x in spells.select_from('points')]
     y = 1
     x = spells.select_from('points', where=[y])
     assert (x, y) == (8, 1)

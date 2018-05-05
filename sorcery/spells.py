@@ -121,7 +121,7 @@ def maybe(frame_info, x):
 
 
 @spell
-def select_from(frame_info, sql, params=(), cursor=None, where=None, close=True):
+def select_from(frame_info, sql, params=(), cursor=None, where=None):
     if cursor is None:
         frame = frame_info.frame
         cursor = only(c for c in chain(frame.f_locals.values(),
@@ -147,22 +147,12 @@ def select_from(frame_info, sql, params=(), cursor=None, where=None, close=True)
         else:
             return row
 
-    @contextmanager
-    def maybe_close():
-        try:
-            yield
-        finally:
-            if close:
-                cursor.close()
-
     if isinstance(node, ast.Assign):
-        with maybe_close():
-            return unpack(cursor.fetchone())
+        return unpack(cursor.fetchone())
     else:
         def vals():
-            with maybe_close():
-                for row in cursor:
-                    yield unpack(row)
+            for row in cursor:
+                yield unpack(row)
 
         return vals()
 
