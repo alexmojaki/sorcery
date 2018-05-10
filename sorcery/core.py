@@ -166,7 +166,8 @@ spell = Spell
 
 def wrap_module(module_name, globs):
     class ModuleWrapper(wrapt.ObjectProxy):
-        pass
+        def __getattribute__(self, item):
+            return object.__getattribute__(self, item)
 
     for name, value in globs.items():
         if isinstance(value, Spell):
