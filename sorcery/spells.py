@@ -1,12 +1,11 @@
 import ast
 import operator
-from contextlib import contextmanager
 from pprint import pprint
 from itertools import chain
 import wrapt
 from littleutils import only
 
-from sorcery.core import spell, wrap_module, node_names
+from sorcery.core import spell, wrap_module, node_names, node_name
 
 _NO_DEFAULT = object()
 
@@ -44,7 +43,7 @@ def args_with_source(frame_info, args):
 @spell
 def dict_of(frame_info, *args, **kwargs):
     result = {
-        arg.id: value
+        node_name(arg): value
         for arg, value in zip(frame_info.call.args, args)
     }
     result.update(kwargs)
@@ -52,11 +51,11 @@ def dict_of(frame_info, *args, **kwargs):
 
 
 @spell
-def print_args(frame_info, *args):
+def print_args(frame_info, *args, file=None):
     for source, arg in args_with_source[frame_info](args):
-        print(source + ' =')
-        pprint(arg)
-        print()
+        print(source + ' =', file=file)
+        pprint(arg, stream=file)
+        print(file=file)
     return args and args[0]
 
 

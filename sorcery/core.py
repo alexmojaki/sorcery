@@ -136,11 +136,16 @@ def _resolve_var(frame, name):
 
 
 class Spell(object):
+    excluded = set()
+
     def __init__(self, func):
         self.func = func
 
     def __get__(self, instance, owner):
         frame = sys._getframe(1)
+        while frame.f_code in self.excluded:
+            frame = frame.f_back
+
         call = FileInfo.for_frame(frame)._attr_call_at(
             frame.f_lineno, self.func.__name__)
 
@@ -160,12 +165,24 @@ class Spell(object):
         call = FileInfo.for_frame(frame)._plain_call_at(frame, self)
         return self[FrameInfo(frame, call)](*args, **kwargs)
 
+    def __repr__(self):
+        return '%s(%r)' % (
+            self.__class__.__name__,
+            self.func
+        )
+
 
 spell = Spell
 
 
+def no_spells(func):
+    Spell.excluded.add(func.__code__)
+    return func
+
+
 def wrap_module(module_name, globs):
     class ModuleWrapper(wrapt.ObjectProxy):
+        @no_spells
         def __getattribute__(self, item):
             return object.__getattribute__(self, item)
 
