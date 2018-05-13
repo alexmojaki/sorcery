@@ -142,6 +142,12 @@ class Spell(object):
         self.func = func
 
     def __get__(self, instance, owner):
+        if instance is None or owner is ModuleWrapper:
+            spl = self
+        else:
+            method = self.func.__get__(instance, owner)
+            spl = Spell(method)
+
         frame = sys._getframe(1)
         while frame.f_code in self.excluded:
             frame = frame.f_back
@@ -150,15 +156,16 @@ class Spell(object):
             frame.f_lineno, self.func.__name__)
 
         if call is None:
-            return self
+            return spl
 
-        return self[FrameInfo(frame, call)]
+        return spl[FrameInfo(frame, call)]
 
     def __getitem__(self, frame_info):
-        def wrapper(*args, **kwargs):
-            return self.func(frame_info, *args, **kwargs)
+        @wrapt.decorator
+        def wrapper(wrapped, _instance, args, kwargs):
+            return wrapped(frame_info, *args, **kwargs)
 
-        return wrapper
+        return wrapper(self.func)
 
     def __call__(self, *args, **kwargs):
         frame = sys._getframe(1)
@@ -180,12 +187,13 @@ def no_spells(func):
     return func
 
 
-def wrap_module(module_name, globs):
-    class ModuleWrapper(wrapt.ObjectProxy):
-        @no_spells
-        def __getattribute__(self, item):
-            return object.__getattribute__(self, item)
+class ModuleWrapper(wrapt.ObjectProxy):
+    @no_spells
+    def __getattribute__(self, item):
+        return object.__getattribute__(self, item)
 
+
+def wrap_module(module_name, globs):
     for name, value in globs.items():
         if isinstance(value, Spell):
             setattr(ModuleWrapper, name, value)

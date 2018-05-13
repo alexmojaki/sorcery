@@ -1,19 +1,10 @@
 import sqlite3
 
 from sorcery import spells
-from sorcery.spells import magic_kwargs, maybe
+from sorcery.spells import maybe
 
 
 def main():
-    bar = 3
-    x = 9
-
-    @magic_kwargs
-    def test_magic_kwargs(**kwargs):
-        return list(kwargs.items())
-
-    assert test_magic_kwargs(bar, x, a=3, b=5) == [('bar', bar), ('x', x), ('a', 3), ('b', 5)]
-
     n = None
     assert maybe(n) is None
     assert maybe(n).a.b.c()[4]().asd.asd()() is None

@@ -1,7 +1,7 @@
 import unittest
 
 from sorcery import spells
-from sorcery.spells import unpack_keys, unpack_attrs, print_args
+from sorcery.spells import unpack_keys, unpack_attrs, print_args, magic_kwargs
 from littleutils import SimpleNamespace
 from io import StringIO
 
@@ -20,6 +20,12 @@ class MyListWrapper(object):
         sort, __iter__, reverse, __iadd__ = spells.delegate_to_attr('list')
 
     copy, __add__, __radd__, __mul__, __rmul__ = spells.call_with_name(_make_new_wrapper)
+
+
+class Foo(object):
+    @magic_kwargs
+    def bar(self, **kwargs):
+        return set(kwargs.items()) | {self}
 
 
 class TestStuff(unittest.TestCase):
@@ -108,6 +114,13 @@ x -
         lst = (lst + [5]).copy()
         self.assertEqual(type(lst), MyListWrapper)
         self.assertEqual(lst, [1, 2, 3, 4, 1, 2, 5])
+
+    def test_magic_kwargs(self):
+        foo = Foo()
+        x = 1
+        y = 2
+        self.assertEqual(foo.bar(x, y, z=3),
+                         {('x', x), ('y', y), ('z', 3), foo})
 
 
 if __name__ == '__main__':
