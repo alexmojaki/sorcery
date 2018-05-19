@@ -1,17 +1,12 @@
 import ast
 import sys
+from collections import defaultdict
+from functools import lru_cache
 
 import wrapt
 from asttokens import ASTTokens
 from cached_property import cached_property
-from collections import defaultdict
 from littleutils import file_to_string, only
-
-try:
-    from functools import lru_cache
-except ImportError:
-    # noinspection PyUnresolvedReferences,PyPackageRequirements
-    from backports.functools_lru_cache import lru_cache
 
 __version__ = '0.0.1'
 
@@ -72,10 +67,6 @@ class FrameInfo(object):
     def __init__(self, frame, call):
         self.frame = frame
         self.call = call
-
-    @property
-    def stmt(self):
-        return stmt_containing_node(self.call)
 
     @property
     def assigned_names(self):

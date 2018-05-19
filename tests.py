@@ -1,3 +1,4 @@
+import inspect
 import sqlite3
 import unittest
 from io import StringIO
@@ -5,6 +6,7 @@ from io import StringIO
 from littleutils import SimpleNamespace
 
 from sorcery import spells
+from sorcery.core import _resolve_var
 from sorcery.spells import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe
 
 
@@ -109,6 +111,11 @@ x -
             a=a, b=obj.b,
             c=3, d=4))
 
+    def test_no_starargs_in_dict_of(self):
+        args = [1, 2]
+        with self.assertRaises(TypeError):
+            spells.dict_of(*args)
+
     def test_delegation(self):
         lst = MyListWrapper([1, 2, 3])
         lst.append(4)
@@ -145,6 +152,32 @@ x -
         y = 1
         x = spells.select_from('points', where=[y])
         assert (x, y) == (8, 1)
+
+    def test_multiple_attr_calls(self):
+        x = 3
+        y = 5
+        self.assertEqual([
+            spells.dict_of(x),
+            spells.dict_of(y),
+        ], [dict(x=x), dict(y=y)])
+
+        with self.assertRaises(ValueError):
+            print([spells.dict_of(x), spells.dict_of(y)])
+
+    def test_no_assignment(self):
+        with self.assertRaises(TypeError):
+            unpack_keys(dict(x=1, y=2))
+
+    def test_resolve_var(self):
+        x = 8
+        frame = inspect.currentframe()
+        self.assertEqual(_resolve_var(frame, 'x'), x)
+        with self.assertRaises(NameError):
+            _resolve_var(frame, 'y')
+
+    def test_spell_repr(self):
+        self.assertRegex(repr(spells.dict_of),
+                         r'Spell\(<function dict_of at 0x.+>\)')
 
 
 if __name__ == '__main__':

@@ -1,5 +1,3 @@
 unpack dict:
 https://stackoverflow.com/questions/1897623/unpacking-a-passed-dictionary-into-the-functions-name-space-in-python
 prefix
-
-assert no *args in dict_of
