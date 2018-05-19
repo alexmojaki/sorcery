@@ -73,6 +73,13 @@ class TestStuff(unittest.TestCase):
         self.assertEqual(x, 1)
         self.assertEqual(y, 2)
 
+    def test_unpack_keys_extras(self):
+        env = dict(DATABASE_USERNAME='me',
+                   DATABASE_PASSWORD='secret')
+        username, password = unpack_keys(env, prefix='DATABASE_', swapcase=True)
+        self.assertEqual(username, 'me')
+        self.assertEqual(password, 'secret')
+
     def test_unpack_attrs(self):
         obj = SimpleNamespace(aa='bv', bb='cc', cc='aa')
         cc, bb, aa = unpack_attrs(obj)

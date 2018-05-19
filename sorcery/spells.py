@@ -11,23 +11,32 @@ _NO_DEFAULT = object()
 
 
 @spell
-def unpack_keys(frame_info, x, default=_NO_DEFAULT):
+def unpack_keys(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False):
     return _unpack(frame_info, x,
                    operator.getitem if default is _NO_DEFAULT else
-                   lambda d, name: d.get(name, default))
+                   lambda d, name: d.get(name, default),
+                   prefix, swapcase)
 
 
 @spell
-def unpack_attrs(frame_info, x):
-    return _unpack(frame_info, x, getattr)
+def unpack_attrs(frame_info, x, prefix=None, swapcase=False):
+    return _unpack(frame_info, x, getattr, prefix, swapcase)
 
 
-def _unpack(frame_info, x, getter):
+def _unpack(frame_info, x, getter, prefix, swapcase):
     names, node = frame_info.assigned_names
+
+    def fix_name(n):
+        if swapcase:
+            n = n.swapcase()
+        if prefix:
+            n = prefix + n
+        return n
+
     if isinstance(node, ast.Assign):
-        return [getter(x, name) for name in names]
+        return [getter(x, fix_name(name)) for name in names]
     else:  # for loop
-        return ([getter(d, name) for name in names]
+        return ([getter(d, fix_name(name)) for name in names]
                 for d in x)
 
 
