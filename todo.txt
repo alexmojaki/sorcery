@@ -1,1 +1,7 @@
+check encoding
+tox
+travis
+readme
+jinx
+
 https://stackoverflow.com/questions/1897623/unpacking-a-passed-dictionary-into-the-functions-name-space-in-python

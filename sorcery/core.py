@@ -1,12 +1,13 @@
 import ast
 import sys
+import tokenize
 from collections import defaultdict
 from functools import lru_cache
 
 import wrapt
 from asttokens import ASTTokens
 from cached_property import cached_property
-from littleutils import file_to_string, only
+from littleutils import only
 
 __version__ = '0.0.1'
 
@@ -14,7 +15,8 @@ __version__ = '0.0.1'
 class FileInfo(object):
 
     def __init__(self, path):
-        self.source = file_to_string(path)
+        with tokenize.open(path) as f:
+            self.source = f.read()
         self.tree = ast.parse(self.source, filename=path)
         self.nodes_by_line = defaultdict(list)
         for node in ast.walk(self.tree):
