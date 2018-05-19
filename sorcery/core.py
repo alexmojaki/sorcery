@@ -140,7 +140,7 @@ class Spell(object):
             spl = Spell(method)
 
         frame = sys._getframe(1)
-        while frame.f_code in self.excluded:
+        while frame.f_code in self.excluded or frame.f_code.co_filename.startswith('<'):
             frame = frame.f_back
 
         call = FileInfo.for_frame(frame)._attr_call_at(

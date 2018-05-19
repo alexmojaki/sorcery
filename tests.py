@@ -5,9 +5,9 @@ from io import StringIO
 
 from littleutils import SimpleNamespace
 
-from sorcery import spells
+import sorcery as spells
 from sorcery.core import _resolve_var
-from sorcery.spells import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe
+from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe
 
 
 class MyListWrapper(object):
