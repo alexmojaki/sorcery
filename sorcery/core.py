@@ -9,9 +9,6 @@ from asttokens import ASTTokens
 from cached_property import cached_property
 from littleutils import only
 
-__version__ = '0.0.1'
-
-
 class FileInfo(object):
 
     def __init__(self, path):

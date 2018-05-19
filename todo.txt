@@ -1,5 +1,3 @@
-check encoding
-tox
 travis
 readme
 jinx
