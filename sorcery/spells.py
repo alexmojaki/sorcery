@@ -12,15 +12,75 @@ _NO_DEFAULT = object()
 
 @spell
 def unpack_keys(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False):
-    return _unpack(frame_info, x,
-                   operator.getitem if default is _NO_DEFAULT else
-                   lambda d, name: d.get(name, default),
-                   prefix, swapcase)
+    """
+    Instead of:
+
+        foo = d['foo']
+        bar = d['bar']
+
+    write:
+
+        foo, bar = unpack_keys(d)
+
+    Instead of:
+
+        foo = d.get('foo', 0)
+        bar = d.get('bar', 0)
+
+    write:
+
+        foo, bar = unpack_keys(d, default=0)
+
+    Instead of:
+
+        foo = d['data_foo']
+        bar = d['data_bar']
+
+    write:
+
+        foo, bar = unpack_keys(d, prefix='data_')
+
+    Instead of:
+
+        foo = d['FOO']
+        bar = d['BAR']
+
+    write:
+
+        foo, bar = unpack_keys(d, swapcase=True)
+
+    and similarly, instead of:
+
+        FOO = d['foo']
+        BAR = d['bar']
+
+    write:
+
+        FOO, BAR = unpack_keys(d, swapcase=True)
+    """
+
+    if default is _NO_DEFAULT:
+        getter = operator.getitem
+    else:
+        # Essentially dict.get, without relying on that method existing
+        def getter(d, name):
+            try:
+                return d[name]
+            except KeyError:
+                return default
+
+    return _unpack(frame_info, x, getter, prefix, swapcase)
 
 
 @spell
-def unpack_attrs(frame_info, x, prefix=None, swapcase=False):
-    return _unpack(frame_info, x, getattr, prefix, swapcase)
+def unpack_attrs(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False):
+    if default is _NO_DEFAULT:
+        getter = getattr
+    else:
+        def getter(d, name):
+            return getattr(d, name, default)
+
+    return _unpack(frame_info, x, getter, prefix, swapcase)
 
 
 def _unpack(frame_info, x, getter, prefix, swapcase):

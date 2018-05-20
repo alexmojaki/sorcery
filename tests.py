@@ -87,6 +87,9 @@ class TestStuff(unittest.TestCase):
         self.assertEqual(bb, obj.bb)
         self.assertEqual(cc, obj.cc)
 
+        d, e = unpack_attrs(obj, default=9)
+        assert d == e == 9
+
     def test_print_args(self):
         out = StringIO()
         x = 3
