@@ -6,8 +6,8 @@ from io import StringIO
 from littleutils import SimpleNamespace
 
 import sorcery as spells
-from sorcery.core import _resolve_var
 from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe
+from sorcery.core import _resolve_var
 
 
 class MyListWrapper(object):
@@ -35,11 +35,13 @@ class Foo(object):
 class TestStuff(unittest.TestCase):
     def test_unpack_keys_basic(self):
         obj = SimpleNamespace(thing=SimpleNamespace())
-        d = dict(foo=1, bar=3, spam=7, x=9)
-        foo, obj.thing.spam, obj.bar = unpack_keys(d)
+        d = dict(foo=1, bar=3, spam=7, baz=8, x=9)
+        out = {}
+        foo, obj.thing.spam, obj.bar, out['baz'] = unpack_keys(d)
         self.assertEqual(foo, d['foo'])
         self.assertEqual(obj.bar, d['bar'])
         self.assertEqual(obj.thing.spam, d['spam'])
+        self.assertEqual(out, {'baz': d['baz']})
 
     def test_unpack_keys_for_loop(self):
         results = []
@@ -70,6 +72,11 @@ class TestStuff(unittest.TestCase):
 
     def test_unpack_keys_bigger_expression(self):
         x, y = map(int, unpack_keys(dict(x='1', y='2')))
+        self.assertEqual(x, 1)
+        self.assertEqual(y, 2)
+
+    def test_unpack_keys_skip_single_assigned_name(self):
+        x, y = [int(v) for v in unpack_keys(dict(x='1', y='2'))]
         self.assertEqual(x, 1)
         self.assertEqual(y, 2)
 
@@ -188,6 +195,11 @@ x -
     def test_spell_repr(self):
         self.assertRegex(repr(spells.dict_of),
                          r'Spell\(<function dict_of at 0x.+>\)')
+
+    def test_assigned_names(self):
+        x, y = ['_' + s for s in spells.assigned_names()]
+        self.assertEqual(x, '_x')
+        self.assertEqual(y, '_y')
 
 
 if __name__ == '__main__':

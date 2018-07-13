@@ -11,6 +11,63 @@ _NO_DEFAULT = object()
 
 
 @spell
+def assigned_names(frame_info):
+    """
+    Instead of:
+
+        foo = func('foo')
+        bar = func('bar')
+
+    write:
+
+        foo, bar = map(func, assigned_names())
+
+    or:
+
+        foo, bar = [func(name) for name in assigned_names()]
+
+    Instead of:
+
+        class Thing(Enum):
+            foo = 'foo'
+            bar = 'bar'
+
+    write:
+
+        class Thing(Enum):
+            foo, bar = assigned_names()
+
+    More generally, this function returns a tuple of strings representing the names being assigned to.
+
+    The result can be assigned to any combination of either:
+
+      - plain variables,
+      - attributes, or
+      - subscripts (square bracket access) with string literal keys
+
+    So the following:
+
+        spam, x.foo, y['bar'] = assigned_names()
+
+    is equivalent to:
+
+        spam = 'spam'
+        x.foo = 'foo'
+        y['bar'] = 'bar'
+
+    Any expression is allowed to the left of the attribute/subscript.
+
+    Only simple tuple unpacking is allowed:
+
+      - no nesting, e.g.  (a, b), c = ...
+      - no stars, e.g.    a, *b = ...
+      - no chains, e.g.   a, b = c = ...
+      - no assignment to a single name without unpacking, e.g.  a = ...
+    """
+    return frame_info.assigned_names()[0]
+
+
+@spell
 def unpack_keys(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False):
     """
     Instead of:
@@ -57,6 +114,44 @@ def unpack_keys(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False)
     write:
 
         FOO, BAR = unpack_keys(d, swapcase=True)
+
+    Note that swapcase is not applied to the prefix, so for example you should write:
+
+        env = dict(DATABASE_USERNAME='me',
+                   DATABASE_PASSWORD='secret')
+        username, password = unpack_keys(env, prefix='DATABASE_', swapcase=True)
+
+    The rules of the assigned_names spell apply.
+
+    This can be seamlessly used in for loops, even inside comprehensions, e.g.
+
+        for foo, bar in unpack_keys(list_of_dicts):
+            ...
+
+    If there are multiple assignment targets in the statement, e.g. if you have
+    a nested list comprehension, the target nearest to the function call will
+    determine the keys. For example, the keys 'foo' and 'bar' will be extracted in:
+
+        [[foo + bar + y for foo, bar in unpack_keys(x)]
+         for x, y in z]
+
+    Like assigned_names, the unpack call can be part of a bigger expression,
+    and the assignment will still be found. So for example instead of:
+
+        foo = int(d['foo'])
+        bar = int(d['bar'])
+
+    you can write:
+
+        foo, bar = map(int, unpack_keys(d))
+
+    or:
+
+        foo, bar = [int(v) for v in unpack_keys(d)]
+
+    The second version works because the spell looks for multiple names being assigned to,
+    so it doesn't just unpack 'v'.
+
     """
 
     if default is _NO_DEFAULT:
@@ -84,7 +179,7 @@ def unpack_attrs(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False
 
 
 def _unpack(frame_info, x, getter, prefix, swapcase):
-    names, node = frame_info.assigned_names
+    names, node = frame_info.assigned_names(allow_loops=True)
 
     def fix_name(n):
         if swapcase:
@@ -135,7 +230,7 @@ def call_with_name(frame_info, func):
 
     return [
         make_func(name)
-        for name in frame_info.assigned_names[0]
+        for name in frame_info.assigned_names()[0]
     ]
 
 
@@ -146,7 +241,7 @@ def delegate_to_attr(frame_info, attr_name):
 
     return [
         make_func(name)
-        for name in frame_info.assigned_names[0]
+        for name in frame_info.assigned_names()[0]
     ]
 
 
@@ -196,7 +291,7 @@ def select_from(frame_info, sql, params=(), cursor=None, where=None):
                                        frame.f_globals.values())
                       if 'cursor' in str(type(c).__mro__).lower() and
                       callable(getattr(c, 'execute', None)))
-    names, node = frame_info.assigned_names
+    names, node = frame_info.assigned_names(allow_one=True, allow_loops=True)
     sql = 'SELECT %s FROM %s' % (', '.join(names), sql)
 
     if where:

@@ -9,6 +9,7 @@ from asttokens import ASTTokens
 from cached_property import cached_property
 from littleutils import only
 
+
 class FileInfo(object):
 
     def __init__(self, path):
@@ -67,9 +68,10 @@ class FrameInfo(object):
         self.frame = frame
         self.call = call
 
-    @property
-    def assigned_names(self):
-        return nearest_assigned_names(self.call)
+    def assigned_names(self, *, allow_one: bool = False, allow_loops: bool = False):
+        return nearest_assigned_names(self.call,
+                                      allow_one=allow_one,
+                                      allow_loops=allow_loops)
 
     @property
     def file_info(self):
@@ -84,18 +86,23 @@ def stmt_containing_node(node):
 
 
 @lru_cache()
-def nearest_assigned_names(node):
-    while not isinstance(node, (ast.stmt, ast.comprehension)):
+def nearest_assigned_names(node, allow_one: bool, allow_loops: bool):
+    while hasattr(node, 'parent'):
         node = node.parent
 
-    if isinstance(node, ast.Assign):
-        target = only(node.targets)
-    elif isinstance(node, (ast.For, ast.comprehension)):
-        target = node.target
+        if isinstance(node, ast.Assign):
+            target = only(node.targets)
+        elif isinstance(node, (ast.For, ast.comprehension)) and allow_loops:
+            target = node.target
+        else:
+            continue
+
+        names = node_names(target)
+        if len(names) > 1 or allow_one:
+            break
     else:
         raise TypeError('No assignment found')
 
-    names = node_names(target)
     return names, node
 
 
@@ -112,6 +119,10 @@ def node_name(node):
         return node.id
     elif isinstance(node, ast.Attribute):
         return node.attr
+    elif (isinstance(node, ast.Subscript) and
+          isinstance(node.slice, ast.Index) and
+          isinstance(node.slice.value, ast.Str)):
+        return node.slice.value.s
     else:
         raise TypeError('Cannot extract name from %s' % node)
 
