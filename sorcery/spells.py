@@ -169,6 +169,19 @@ def unpack_keys(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False)
 
 @spell
 def unpack_attrs(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False):
+    """
+    This is similar to unpack_keys, but for attributes.
+
+    Instead of:
+
+        foo = x.foo
+        bar = x.bar
+
+    write:
+
+        foo, bar = unpack_keys(x)
+    """
+
     if default is _NO_DEFAULT:
         getter = getattr
     else:
@@ -197,6 +210,23 @@ def _unpack(frame_info, x, getter, prefix, swapcase):
 
 @spell
 def args_with_source(frame_info, args):
+    """
+    Returns a list of pairs of:
+        - the source code of the argument
+        - the value of the argument
+    for each argument.
+
+    For example:
+
+        args_with_source(foo(), 1+2)
+
+    is the same as:
+
+        [
+            ("foo()", foo()),
+            ("1+2", 3)
+        ]
+    """
     tokens = frame_info.file_info.tokens
     return [
         (tokens.get_text(arg), value)
@@ -206,6 +236,41 @@ def args_with_source(frame_info, args):
 
 @spell
 def dict_of(frame_info, *args, **kwargs):
+    """
+    Instead of:
+
+        {'foo': foo, 'bar': bar, 'spam': thing()}
+
+    or:
+
+        dict(foo=foo, bar=bar, spam=thing())
+
+    write:
+
+        dict_of(foo, bar, spam=thing())
+
+    In other words, returns a dictionary with an item for each argument,
+    where positional arguments use their names as keys,
+    and keyword arguments do the same as in the usual dict constructor.
+
+    The positional arguments can be any of:
+
+      - plain variables,
+      - attributes, or
+      - subscripts (square bracket access) with string literal keys
+
+    So the following:
+
+        dict_of(spam, x.foo, y['bar'])
+
+    is equivalent to:
+
+        dict(spam=spam, foo=x.foo, bar=y['bar'])
+
+    *args are not allowed.
+
+    """
+
     result = {
         node_name(arg): value
         for arg, value in zip(frame_info.call.args, args)
@@ -216,6 +281,10 @@ def dict_of(frame_info, *args, **kwargs):
 
 @spell
 def print_args(frame_info, *args, file=None):
+    """
+    For each argument, prints the source code of that argument
+    and its value. Returns the first argument.
+    """
     for source, arg in args_with_source[frame_info](args):
         print(source + ' =', file=file)
         pprint(arg, stream=file)
@@ -225,6 +294,27 @@ def print_args(frame_info, *args, file=None):
 
 @spell
 def call_with_name(frame_info, func):
+    """
+    Given:
+    
+        class C:
+            def generic(self, method_name, *args, **kwargs):
+                ...
+                
+    Inside the class definition, instead of:
+
+            def foo(self, x, y):
+                return self.generic('foo', x, y)
+            
+            def bar(self, z):
+                return self.generic('bar', z)
+    
+    write:
+    
+            foo, bar = call_with_name(generic)
+
+    This only works for methods inside classes, not free functions.
+    """
     def make_func(name):
         return lambda self, *args, **kwargs: func(self, name, *args, **kwargs)
 
@@ -236,6 +326,35 @@ def call_with_name(frame_info, func):
 
 @spell
 def delegate_to_attr(frame_info, attr_name):
+    """
+    This is a special case of the use case fulfilled by call_with_name.
+    
+    Given:
+    
+        class Wrapper:
+            def __init__(self, thing):
+                self.thing = thing
+            
+    Inside the class definition, instead of:
+    
+            def foo(self, x, y):
+                return self.thing.foo(x, y)
+            
+            def bar(self, z):
+                return self.thing.bar(z)
+
+    Write:
+    
+            foo, bar = thing_to_attr('thing')
+
+    Specifically, this will make:
+
+        Wrapper().foo
+
+    equivalent to:
+
+        Wrapper().thing.foo
+    """
     def make_func(name):
         return property(lambda self: getattr(getattr(self, attr_name), name))
 
@@ -266,6 +385,26 @@ class _Nothing(object):
 
 @spell
 def maybe(frame_info, x):
+    """
+    Instead of:
+
+        None if foo is None else foo.bar()
+
+    write:
+
+        maybe(foo).bar()
+
+    Specifically, if foo is not None, then maybe(foo) is just foo.
+
+    If foo is None, then any sequence of attributes, subscripts, or
+    calls immediately to the right of maybe(foo) is ignored, and
+    the final result is None. So maybe(foo)[0].x.y.bar() is None,
+    while func(maybe(foo)[0].x.y.bar()) is func(None) because enclosing
+    expressions are not affected.
+    """
+    if x is not None:
+        return x
+
     node = frame_info.call
     count = 0
     while True:
@@ -277,7 +416,7 @@ def maybe(frame_info, x):
         count += 1
         node = parent
 
-    if count == 0 or x is not None:
+    if count == 0:
         return x
 
     return _Nothing(count)
@@ -285,6 +424,48 @@ def maybe(frame_info, x):
 
 @spell
 def select_from(frame_info, sql, params=(), cursor=None, where=None):
+    """
+    Instead of:
+
+        cursor.execute('''
+            SELECT foo, bar
+            FROM my_table
+            WHERE spam = ?
+              AND thing = ?
+            ''', [spam, thing])
+
+        for foo, bar in cursor:
+            ...
+
+    write:
+
+        for foo, bar in select_from('my_table', where=[spam, thing]):
+            ...
+
+    Specifically:
+        - the assigned names (similar to the assigned_names and unpack_keys spells)
+            are placed in the SELECT clause
+        - the first argument (usually just a table name but can be any SQL)
+            goes after the FROM
+        - if the where argument is supplied, it must be a list or tuple literal of values
+            which are supplied as query parameters and whose names are used in a
+            WHERE clause using the = and AND operators.
+            If you use this argument, don't put a WHERE clause in the sql argument and
+            don't supply params
+        - a cursor object is automatically pulled from the calling frame, but if this
+            doesn't work you can supply one with the cursor keyword argument
+        - the params argument can be supplied for more custom cases than the where
+            argument provides.
+        - if this is used in a loop or list comprehension, all rows in the result
+            will be iterated over.
+            If it is used in an assignment statement, one row will be returned.
+        - If there are multiple names being assigned (i.e. multiple columns being selected)
+            then the row will be returned and thus unpacked. If there is only one name,
+            it will automatically be unpacked so you don't have to add [0].
+
+    This spell is much more a fun rough idea than the others. It is expected that there
+    are many use cases it will not fit into nicely.
+    """
     if cursor is None:
         frame = frame_info.frame
         cursor = only(c for c in chain(frame.f_locals.values(),
@@ -300,6 +481,7 @@ def select_from(frame_info, sql, params=(), cursor=None, where=None):
         where_names = node_names(where_arg)
         assert len(where_names) == len(where)
         sql += ' WHERE ' + ' AND '.join('%s = ?' % name for name in where_names)
+        assert params == ()
         params = where
 
     cursor.execute(sql, params)

@@ -151,6 +151,7 @@ x -
     def test_maybe(self):
         n = None
         assert maybe(n) is None
+        self.assertIsNone(maybe(n))
         assert maybe(n).a.b.c()[4]().asd.asd()() is None
         assert maybe(0) is 0
         assert maybe({'a': 3})['a'] is 3
