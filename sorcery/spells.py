@@ -180,7 +180,7 @@ def unpack_attrs(frame_info, x, default=_NO_DEFAULT, prefix=None, swapcase=False
 
     write:
 
-        foo, bar = unpack_keys(x)
+        foo, bar = unpack_attrs(x)
     """
 
     if default is _NO_DEFAULT:
@@ -270,6 +270,9 @@ def dict_of(frame_info, *args, **kwargs):
 
     *args are not allowed.
 
+    To give your own functions the ability to turn positional argments into
+    keyword arguments, use the decorator magic_kwargs.
+
     """
 
     result = {
@@ -346,7 +349,7 @@ def delegate_to_attr(frame_info, attr_name):
 
     Write:
     
-            foo, bar = thing_to_attr('thing')
+            foo, bar = delegate_to_attr('thing')
 
     Specifically, this will make:
 
