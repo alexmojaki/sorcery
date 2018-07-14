@@ -235,6 +235,16 @@ x -
         self.assertEqual(x, '_x')
         self.assertEqual(y, '_y')
 
+    def test_semicolon_error(self):
+        x, y = unpack_keys(dict(x=1, y=2))  # no error
+        assert x == 1 and y == 2
+        with self.assertRaises(Exception):
+            x, y = unpack_keys(
+
+                # Error caused by this line having multiple nodes
+                # from different statements
+                dict(x=1, y=2)); str(x)
+
 
 if __name__ == '__main__':
     unittest.main()

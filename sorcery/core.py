@@ -11,6 +11,21 @@ from littleutils import only
 
 
 class FileInfo(object):
+    """
+    Contains metadata about a python source file:
+
+        - path: path to the file
+        - source: text contents of the file
+        - tree: AST parsed from the source
+        - tokens: ASTTokens object for getting the source of specific AST nodes
+        - nodes_by_lines: dictionary from line numbers
+            to a list of AST nodes at that line
+
+    Each node in the AST has an extra attribute 'parent'.
+
+    Users should not need to create instances of this class themselves.
+    This class should not be instantiated directly, rather use file_info for caching.
+    """
 
     def __init__(self, path):
         with tokenize.open(path) as f:
@@ -34,6 +49,21 @@ class FileInfo(object):
 
     @lru_cache()
     def _attr_call_at(self, line, name):
+        """
+        Searches for a Call at the given line where the callable is
+        an attribute with the given name, i.e.
+
+            obj.<name>(...)
+
+        This is mainly to allow:
+
+            import sorcery
+
+            sorcery.some_spell(...)
+
+        Returns None if there is no such call. Raises an error if there
+        are several on the same line.
+        """
         options = [node for node in self.nodes_by_line[line]
                    if isinstance(node, ast.Call) and
                    isinstance(node.func, ast.Attribute) and
@@ -47,15 +77,33 @@ class FileInfo(object):
         raise ValueError('Found %s possible calls to %s' % (len(options), name))
 
     @lru_cache()
-    def _calls_in_stmt_at_line(self, lineno):
-        stmt = only({stmt_containing_node(node)
-                     for node in self.nodes_by_line[lineno]})
+    def _plain_calls_in_stmt_at_line(self, lineno):
+        """
+        Returns a list of the Call nodes in the statement containing this line
+        which are 'plain', i.e. the callable is just a variable name, not an
+        attribute or some other expression.
+
+        Note that this can return Call nodes that aren't at the given line,
+        as long as they are in the statement that contains the line.
+
+        Because a statement is inferred from a line number, there must be no
+        semicolons separating statements on this line.
+        """
+        stmt = only({
+            stmt_containing_node(node)
+            for node in
+            self.nodes_by_line[lineno]})  # finds only statement at line - no semicolons allowed
         return [node for node in ast.walk(stmt)
                 if isinstance(node, ast.Call) and
                 isinstance(node.func, ast.Name)]
 
     def _plain_call_at(self, frame, val):
-        return only([node for node in self._calls_in_stmt_at_line(frame.f_lineno)
+        """
+        Returns the Call node currently being evaluated in this frame where
+        the callable is just a variable name, not an attribute or some other expression,
+        and that name resolves to `val`.
+        """
+        return only([node for node in self._plain_calls_in_stmt_at_line(frame.f_lineno)
                      if _resolve_var(frame, node.func.id) == val])
 
 
