@@ -278,3 +278,21 @@ The module `sorcery.core` has these helper functions:
 
 and the property `file_info` which returns an instance of `sorcery.core.FileInfo` (see the docstring of the class for what this has).
 
+## Should I actually use this library?
+
+If you're still getting the hang of Python, no. This will lead to confusion about what is normal and expected in Python and will hamper your learning.
+
+In a serious business or production context, I wouldn't recommend most of the spells unless you're quite careful. Their unusual nature may confuse other readers of the code, and tying the behaviour of your code to things like the names of variables may not be good for readability and refactoring. There are some exceptions though:
+
+- `call_with_name` and `delegate_to_attr`
+- `assigned_names` for making `Enum`s.
+- `print_args` when debugging
+
+If you're writing code where performance and stability aren't critical, e.g. if it's for fun or you just want to get some code down as fast as possible and you can polish it later, then go for it.
+
+The point of this library is not just to be used in actual code. It's a way to explore and think about API and language design, readability, and the limits of Python itself. It was fun to create and I hope others can have fun playing around with it. Come [have a chat](https://gitter.im/python-sorcery/Lobby) about what spells you think would be cool, what features you wish Python had, or what crazy projects you want to create.
+
+If you're interested in this stuff, particularly creative uses of the Python AST, you may also be interested in:
+
+- [birdseye](https://github.com/alexmojaki/birdseye) (another project of mine): a debugger which records the value of every expression
+- [MacroPy](https://github.com/lihaoyi/macropy): syntactic macros in Python by transforming the AST at import time
