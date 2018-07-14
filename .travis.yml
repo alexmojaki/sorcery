@@ -4,6 +4,9 @@ python:
   - 3.5
   - 3.6
 script:
-  - python setup.py test
+  - python setup.py install
+  - pip install coveralls
+  - coverage run --source=sorcery tests.py
+  - coveralls
 notifications:
   email: false
