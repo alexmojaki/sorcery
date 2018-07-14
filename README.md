@@ -1,6 +1,6 @@
 # sorcery
 
-[![Build Status](https://travis-ci.org/alexmojaki/sorcery.svg?branch=master)](https://travis-ci.org/alexmojaki/sorcery) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/sorcery/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/sorcery?branch=master)
+[![Build Status](https://travis-ci.org/alexmojaki/sorcery.svg?branch=master)](https://travis-ci.org/alexmojaki/sorcery) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/sorcery/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/sorcery?branch=master) [![Join the chat at https://gitter.im/python-sorcery/Lobby](https://badges.gitter.im/python-sorcery/Lobby.svg)](https://gitter.im/python-sorcery/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things. Here are some quick examples (see the docstrings for more detail):
 
