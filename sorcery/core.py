@@ -2,7 +2,7 @@ import ast
 import sys
 import tokenize
 from collections import defaultdict
-from functools import lru_cache
+from functools import lru_cache, partial
 
 import wrapt
 from asttokens import ASTTokens
@@ -248,19 +248,15 @@ class Spell(object):
         if call is None:
             return spl
 
-        return spl[FrameInfo(frame, call)]
+        return spl.at(FrameInfo(frame, call))
 
-    def __getitem__(self, frame_info):
-        @wrapt.decorator
-        def wrapper(wrapped, _instance, args, kwargs):
-            return wrapped(frame_info, *args, **kwargs)
-
-        return wrapper(self.func)
+    def at(self, frame_info):
+        return partial(self.func, frame_info)
 
     def __call__(self, *args, **kwargs):
         frame = sys._getframe(1)
         call = FileInfo.for_frame(frame)._plain_call_at(frame, self)
-        return self[FrameInfo(frame, call)](*args, **kwargs)
+        return self.at(FrameInfo(frame, call))(*args, **kwargs)
 
     def __repr__(self):
         return '%s(%r)' % (

@@ -286,7 +286,7 @@ def print_args(frame_info, *args, file=None):
     For each argument, prints the source code of that argument
     and its value. Returns the first argument.
     """
-    for source, arg in args_with_source[frame_info](args):
+    for source, arg in args_with_source.at(frame_info)(args):
         print(source + ' =', file=file)
         pprint(arg, stream=file)
         print(file=file)
@@ -553,7 +553,7 @@ def magic_kwargs(func):
         count = args_count - (instance is not None)  # account for self argument
         normal_args = args[:count]
         magic_args = args[count:]
-        full_kwargs = dict_of[frame_info](*magic_args, **kwargs)
+        full_kwargs = dict_of.at(frame_info)(*magic_args, **kwargs)
         return wrapped(*normal_args, **full_kwargs)
 
     return spell(wrapper(func))
