@@ -138,11 +138,14 @@ def nearest_assigned_names(node, allow_one: bool, allow_loops: bool):
     while hasattr(node, 'parent'):
         node = node.parent
 
+        target = None
+
         if isinstance(node, ast.Assign):
             target = only(node.targets)
         elif isinstance(node, (ast.For, ast.comprehension)) and allow_loops:
             target = node.target
-        else:
+
+        if not target:
             continue
 
         names = node_names(target)
