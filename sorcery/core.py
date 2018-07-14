@@ -111,8 +111,16 @@ file_info = lru_cache()(FileInfo)
 
 
 class FrameInfo(object):
+    """
+    Contains metadata about where a spell is being called.
+    An instance of this is passed as the first argument to any spell.
+    """
 
     def __init__(self, frame, call):
+        """
+        :param frame: the execution frame in which the spell is being called
+        :param call: the ast.Call node where the spell is being called
+        """
         self.frame = frame
         self.call = call
 
@@ -134,7 +142,22 @@ def stmt_containing_node(node):
 
 
 @lru_cache()
-def nearest_assigned_names(node, allow_one: bool, allow_loops: bool):
+def nearest_assigned_names(node, *, allow_one: bool, allow_loops: bool):
+    """
+    Finds the names being assigned to in the nearest ancestor of
+    the given node that assigns names and satisfies the given conditions.
+
+    If allow_loops is false, this only considers assignment statements,
+    e.g. `x, y = ...`. If it's true, then for loops and comprehensions are
+    also considered.
+
+    If allow_one is false, nodes which assign only one name are ignored.
+
+    Returns:
+    1. a tuple of strings containing the names of the nodes being assigned
+    2. The AST node where the assignment happens
+    """
+
     while hasattr(node, 'parent'):
         node = node.parent
 
@@ -158,6 +181,12 @@ def nearest_assigned_names(node, allow_one: bool, allow_loops: bool):
 
 
 def node_names(node):
+    """
+    Returns a tuple of strings containing the names of
+    the nodes under the given node.
+
+    The node must be a tuple or list literal, or a single named node.
+    """
     if isinstance(node, (ast.Tuple, ast.List)):
         names = tuple(node_name(x) for x in node.elts)
     else:
@@ -166,6 +195,12 @@ def node_names(node):
 
 
 def node_name(node):
+    """
+    Returns the 'name' of a node, which is either:
+     - the name of a variable
+     - the name of an attribute
+     - the contents of a string literal key, as in d['key']
+    """
     if isinstance(node, ast.Name):
         return node.id
     elif isinstance(node, ast.Attribute):
@@ -179,6 +214,9 @@ def node_name(node):
 
 
 def _resolve_var(frame, name):
+    """
+    Returns the value of a variable name in a frame.
+    """
     for ns in frame.f_locals, frame.f_globals, frame.f_builtins:
         try:
             return ns[name]
