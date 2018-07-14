@@ -17,7 +17,6 @@ __version__ = re.search(r"__version__ = '([.\d]+)'", contents).group(1)
 
 install_requires = [
     'littleutils>=0.2.1',
-    'cached_property',
     'asttokens',
     'wrapt',
 ]

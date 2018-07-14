@@ -1,6 +1,6 @@
 # sorcery
 
-This package lets you write 'functions' that know where they're being called from and can use that information to do otherwise impossible things. Here are some quick examples (see the docstrings for more detail):
+This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things. Here are some quick examples (see the docstrings for more detail):
 
     from sorcery import assigned_names, unpack_keys, unpack_attrs, dict_of, print_args, call_with_name, delegate_to_attr, maybe, select_from
 
@@ -14,6 +14,17 @@ Instead of:
 write:
 
     foo, bar = [func(name) for name in assigned_names()]
+
+Instead of:
+
+    class Thing(Enum):
+        foo = 'foo'
+        bar = 'bar'
+
+write:
+
+    class Thing(Enum):
+        foo, bar = assigned_names()
 
 ### `unpack_keys` and `unpack_attrs`
 
@@ -60,7 +71,7 @@ write:
 
 To write your own version of this (e.g. if you want to add colour), use `args_with_source`.
 
-The packages [q](https://github.com/zestyping/q) and [https://github.com/gruns/icecream](https://github.com/gruns/icecream) have similar functionality.
+The packages [q](https://github.com/zestyping/q) and [icecream](https://github.com/gruns/icecream) have similar functionality.
 
 ### `call_with_name` and `delegate_to_attr`
 
@@ -149,3 +160,119 @@ write:
 
     for foo, bar in select_from('my_table', where=[spam, thing]):
         ...
+
+## Rules for casting spells
+
+To allow spells to find where they're being called from, you have to abide by certain laws. Otherwise they may backfire.
+
+![when magic goes wrong](https://cdn.drawception.com/images/panels/2012/4-25/cLKH8cpLm9-16.png)
+
+### The easy version
+
+Here are rules you can follow that are as easy to remember and apply as possible:
+
+1. Use spells as simply and directly and possible. No indirection, renaming, or aliases.
+2. Don't use the name of a spell for anything else.
+3. Don't use the same spell more than once in a statement.
+4. Never put multiple statements on the same line separated by semicolons.
+
+### The advanced version
+
+If the above rules seem like a pain and you want to delve deeper into the magic, here is what you can actually do. You still have to avoid semicolons, but the other rules are a bit more complicated.
+
+If you want to define a function which calls a spell for you while offering the same interface as a spell (typically `__getattr__`, `__getattribute__`, or some other boilerplate code for indirection), see the decorator `no_spells`.
+
+If the spell is in its own variable, e.g. as a result of `from sorcery import dict_of` or `d = spells.dict_of`, then:
+
+- You can use any name, as the actual value of the variable will be checked to find the call.
+- You cannot use the same spell twice in the same statement, even if the statement spans several lines.
+
+If the spell is used as an attribute of an object, e.g. `sorcery.dict_of` or as a method of a class, then:
+
+- You must use the name of the original function.
+- You cannot use the same attribute name (even for the same spell) twice in the same line, although you can use them twice in the same statement if they're on different physical lines.
+- You cannot use the spell as an attribute of an object where it wasn't originally defined. For example, you cannot set `foo.dict_of = dict_of` and then call `foo.dict_of(...)`. This is because the spell has to be in the class of the object to make the descriptor protocol work.
+- For spells that are methods, you cannot use the unbound method of a class, e.g. `Foo.bar(Foo(), ...)`.
+
+## How to write your own spells
+
+Decorate a function with `@spell`. An instance of the class `FrameInfo` will be passed to the first argument of the function, while the other arguments will come from the call. For example:
+
+    from sorcery import spell, wrap_module
+
+    @spell
+    def my_spell(frame_info, foo):
+        ...
+
+will be called as just `my_spell(foo)`.
+
+The most important piece of information you are likely to use is `frame_info.call`. This is the `ast.Call` node where the spell is being called. [Here](https://greentreesnakes.readthedocs.io/en/latest/nodes.html) is some helpful documentation for navigating the AST. Every node also has a `parent` attribute added to it.
+
+`frame_info.frame` is the execution frame in which the spell is being called - see the [inspect](https://docs.python.org/3/library/inspect.html) docs for what you can do with this.
+
+At the bottom of the module where the spell is defined, add this line exactly:
+
+    wrap_module(__name__, globals())
+
+This should also be added to any other module where you want to be able to import the spell from and use it.
+
+Those are the essentials. See [the source](https://github.com/alexmojaki/sorcery/blob/master/sorcery/spells.py) of various spells for some examples, it's not that complicated.
+
+### Using other spells within spells
+
+Sometimes you want to reuse the magic of one spell in another spell. Simply calling the other spell won't do what you want - you want to tell the other spell to act as if it's being called from the place your own spell is called. For this, add insert `.at(frame_info)` between the spell you're using and its arguments.
+
+Let's look at a concrete example. Here's the definition of the spell `args_with_source`:
+
+```python
+@spell
+def args_with_source(frame_info, *args):
+    """
+    Returns a list of pairs of:
+        - the source code of the argument
+        - the value of the argument
+    for each argument.
+
+    For example:
+
+        args_with_source(foo(), 1+2)
+
+    is the same as:
+
+        [
+            ("foo()", foo()),
+            ("1+2", 3)
+        ]
+    """
+    ...
+```
+
+The magic of `args_with_source` is that it looks at its arguments wherever it's called and extracts their source code. Here is a simplified implementation of the `print_args` spell which uses that magic:
+
+```python
+@spell
+def simple_print_args(frame_info, *args):
+    for source, arg in args_with_source.at(frame_info)(*args):
+        print(source, '=', arg)
+```
+
+Then when you call `simple_print_args(foo(), 1+2)`, the `Call` node of that expression will be passed down to `args_with_source.at(frame_info)` so that the source is extracted from the correct arguments. Simply writing `args_with_source(*args)` would be wrong, as that would give the source `"*args"`.
+
+### Other helpers
+
+That's all you really need to get started writing a spell, but here are pointers to some other stuff that might help. See the docstrings for details.
+
+The module `sorcery.core` has these helper functions:
+
+- `node_names(node: ast.AST) -> Tuple[str]`
+- `node_name(node: ast.AST) -> str`
+- `statement_containing_node(node: ast.AST) -> ast.stmt:`
+- `resolve_var(frame, name: str)`
+
+`FrameInfo` has these methods:
+
+- `assigned_names(...)`
+- `get_source(self, node: ast.AST) -> str`
+
+and the property `file_info` which returns an instance of `sorcery.core.FileInfo` (see the docstring of the class for what this has).
+

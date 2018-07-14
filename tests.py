@@ -6,8 +6,8 @@ from io import StringIO
 from littleutils import SimpleNamespace
 
 import sorcery as spells
-from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe
-from sorcery.core import _resolve_var
+from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe, args_with_source
+from sorcery.core import resolve_var
 
 
 class MyListWrapper(object):
@@ -222,9 +222,9 @@ x -
     def test_resolve_var(self):
         x = 8
         frame = inspect.currentframe()
-        self.assertEqual(_resolve_var(frame, 'x'), x)
+        self.assertEqual(resolve_var(frame, 'x'), x)
         with self.assertRaises(NameError):
-            _resolve_var(frame, 'y')
+            resolve_var(frame, 'y')
 
     def test_spell_repr(self):
         self.assertRegex(repr(spells.dict_of),
@@ -244,6 +244,10 @@ x -
                 # Error caused by this line having multiple nodes
                 # from different statements
                 dict(x=1, y=2)); str(x)
+
+    def test_args_with_source(self):
+        self.assertEqual(args_with_source(1 + 2, 3 * 4),
+                         [("1 + 2", 3), ("3 * 4", 12)])
 
 
 if __name__ == '__main__':

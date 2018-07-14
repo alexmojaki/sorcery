@@ -3,10 +3,10 @@ import sys
 import tokenize
 from collections import defaultdict
 from functools import lru_cache, partial
+from typing import Optional, List, Tuple
 
 import wrapt
 from asttokens import ASTTokens
-from cached_property import cached_property
 from littleutils import only
 
 
@@ -17,7 +17,7 @@ class FileInfo(object):
         - path: path to the file
         - source: text contents of the file
         - tree: AST parsed from the source
-        - tokens: ASTTokens object for getting the source of specific AST nodes
+        - asttokens(): ASTTokens object for getting the source of specific AST nodes
         - nodes_by_lines: dictionary from line numbers
             to a list of AST nodes at that line
 
@@ -40,15 +40,20 @@ class FileInfo(object):
         self.path = path
 
     @staticmethod
-    def for_frame(frame):
+    def for_frame(frame) -> 'FileInfo':
         return file_info(frame.f_code.co_filename)
 
-    @cached_property
-    def tokens(self):
+    @lru_cache()
+    def asttokens(self) -> ASTTokens:
+        """
+        Returns an ASTTokens object for getting the source of specific AST nodes.
+
+        See http://asttokens.readthedocs.io/en/latest/api-index.html
+        """
         return ASTTokens(self.source, tree=self.tree, filename=self.path)
 
     @lru_cache()
-    def _attr_call_at(self, line, name):
+    def _attr_call_at(self, line: int, name: str) -> Optional[ast.Call]:
         """
         Searches for a Call at the given line where the callable is
         an attribute with the given name, i.e.
@@ -77,7 +82,7 @@ class FileInfo(object):
         raise ValueError('Found %s possible calls to %s' % (len(options), name))
 
     @lru_cache()
-    def _plain_calls_in_stmt_at_line(self, lineno):
+    def _plain_calls_in_stmt_at_line(self, lineno: int) -> List[ast.Call]:
         """
         Returns a list of the Call nodes in the statement containing this line
         which are 'plain', i.e. the callable is just a variable name, not an
@@ -90,21 +95,21 @@ class FileInfo(object):
         semicolons separating statements on this line.
         """
         stmt = only({
-            stmt_containing_node(node)
+            statement_containing_node(node)
             for node in
             self.nodes_by_line[lineno]})  # finds only statement at line - no semicolons allowed
         return [node for node in ast.walk(stmt)
                 if isinstance(node, ast.Call) and
                 isinstance(node.func, ast.Name)]
 
-    def _plain_call_at(self, frame, val):
+    def _plain_call_at(self, frame, val) -> ast.Call:
         """
         Returns the Call node currently being evaluated in this frame where
         the callable is just a variable name, not an attribute or some other expression,
         and that name resolves to `val`.
         """
         return only([node for node in self._plain_calls_in_stmt_at_line(frame.f_lineno)
-                     if _resolve_var(frame, node.func.id) == val])
+                     if resolve_var(frame, node.func.id) == val])
 
 
 file_info = lru_cache()(FileInfo)
@@ -114,35 +119,58 @@ class FrameInfo(object):
     """
     Contains metadata about where a spell is being called.
     An instance of this is passed as the first argument to any spell.
+    Users should not instantiate this class themselves.
+
+    There are two essential attributes:
+
+    - frame: the execution frame in which the spell is being called
+    - call: the ast.Call node where the spell is being called
+        See https://greentreesnakes.readthedocs.io/en/latest/nodes.html
+        to learn how to navigate the AST
     """
 
-    def __init__(self, frame, call):
-        """
-        :param frame: the execution frame in which the spell is being called
-        :param call: the ast.Call node where the spell is being called
-        """
+    def __init__(self, frame, call: ast.Call):
         self.frame = frame
         self.call = call
 
-    def assigned_names(self, *, allow_one: bool = False, allow_loops: bool = False):
-        return nearest_assigned_names(self.call,
-                                      allow_one=allow_one,
-                                      allow_loops=allow_loops)
+    def assigned_names(self, *,
+                       allow_one: bool = False,
+                       allow_loops: bool = False,
+                       ) -> Tuple[Tuple[str], ast.AST]:
+        """
+        Calls the function assigned_names for this instance's Call node.
+        """
+        return assigned_names(self.call,
+                              allow_one=allow_one,
+                              allow_loops=allow_loops)
 
     @property
     def file_info(self):
+        """
+        Returns an instance of FileInfo for the file where this frame is executed.
+        """
         return FileInfo.for_frame(self.frame)
+
+    def get_source(self, node: ast.AST) -> str:
+        """
+        Returns a string containing the source code of an AST node in the
+        same file as this call.
+        """
+        return self.file_info.asttokens().get_text(node)
 
 
 @lru_cache()
-def stmt_containing_node(node):
+def statement_containing_node(node: ast.AST) -> ast.stmt:
     while not isinstance(node, ast.stmt):
         node = node.parent
     return node
 
 
 @lru_cache()
-def nearest_assigned_names(node, *, allow_one: bool, allow_loops: bool):
+def assigned_names(node, *,
+                   allow_one: bool,
+                   allow_loops: bool,
+                   ) -> Tuple[Tuple[str], ast.AST]:
     """
     Finds the names being assigned to in the nearest ancestor of
     the given node that assigns names and satisfies the given conditions.
@@ -180,12 +208,14 @@ def nearest_assigned_names(node, *, allow_one: bool, allow_loops: bool):
     return names, node
 
 
-def node_names(node):
+def node_names(node: ast.AST) -> Tuple[str]:
     """
     Returns a tuple of strings containing the names of
     the nodes under the given node.
 
     The node must be a tuple or list literal, or a single named node.
+
+    See the doc of the function node_name.
     """
     if isinstance(node, (ast.Tuple, ast.List)):
         names = tuple(node_name(x) for x in node.elts)
@@ -194,7 +224,7 @@ def node_names(node):
     return names
 
 
-def node_name(node):
+def node_name(node: ast.AST) -> str:
     """
     Returns the 'name' of a node, which is either:
      - the name of a variable
@@ -213,9 +243,13 @@ def node_name(node):
         raise TypeError('Cannot extract name from %s' % node)
 
 
-def _resolve_var(frame, name):
+def resolve_var(frame, name: str):
     """
     Returns the value of a variable name in a frame.
+
+    Equivalent to eval(name, frame.f_globals, frame.f_globals)
+    (as long as 'name' is just an identifier)
+    but faster and safer.
     """
     for ns in frame.f_locals, frame.f_globals, frame.f_builtins:
         try:
@@ -280,7 +314,7 @@ class Spell(object):
         # The spell is being called. Bind the FrameInfo
         return spl.at(FrameInfo(frame, call))
 
-    def at(self, frame_info):
+    def at(self, frame_info: FrameInfo):
         """
         Returns a callable that has frame_info already bound as the first argument
         of the spell, and will accept only the other arguments normally.
@@ -335,6 +369,7 @@ def no_spells(func):
             def foo(self, **kwargs):
                 self.a.foo(**kwargs)
 
+    Note that the method B.foo must have the same name (foo) as the spell A.foo.
 
     Or, if you wanted to delegate all unknown attributes to `self.a`, you could write:
 
@@ -342,7 +377,7 @@ def no_spells(func):
             def __getattr__(self, item):
                 return getattr(self.a, item)
 
-    Then `B().foo(...)` will work as expected.
+    In either case `B().foo(...)` will work as expected.
     """
 
     Spell._excluded_codes.add(func.__code__)
@@ -363,7 +398,7 @@ class ModuleWrapper(wrapt.ObjectProxy):
         return object.__getattribute__(self, item)
 
 
-def wrap_module(module_name, globs):
+def wrap_module(module_name: str, globs: dict):
     """
     Anywhere a spell is defined at the global level, put:
 

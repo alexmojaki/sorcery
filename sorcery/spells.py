@@ -210,7 +210,7 @@ def _unpack(frame_info, x, getter, prefix, swapcase):
 
 
 @spell
-def args_with_source(frame_info, args):
+def args_with_source(frame_info, *args):
     """
     Returns a list of pairs of:
         - the source code of the argument
@@ -228,9 +228,8 @@ def args_with_source(frame_info, args):
             ("1+2", 3)
         ]
     """
-    tokens = frame_info.file_info.tokens
     return [
-        (tokens.get_text(arg), value)
+        (frame_info.get_source(arg), value)
         for arg, value in zip(frame_info.call.args, args)
     ]
 
@@ -289,7 +288,7 @@ def print_args(frame_info, *args, file=None):
     For each argument, prints the source code of that argument
     and its value. Returns the first argument.
     """
-    for source, arg in args_with_source.at(frame_info)(args):
+    for source, arg in args_with_source.at(frame_info)(*args):
         print(source + ' =', file=file)
         pprint(arg, stream=file)
         print(file=file)
