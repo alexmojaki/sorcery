@@ -226,33 +226,72 @@ def _resolve_var(frame, name):
 
 
 class Spell(object):
-    excluded = set()
+    """
+    A Spell is a special callable that has information about where it's being
+    called from.
 
+    To create a spell, decorate a function with @spell.
+    An instance of FrameInfo will be passed to the first argument of the function,
+    while the other arguments will come from the call. For example:
+
+        @spell
+        def my_spell(frame_info, foo):
+            ...
+
+    will be called as just `my_spell(foo)`.
+    """
+
+    _excluded_codes = set()
+
+    # Called when decorating a function
     def __init__(self, func):
         self.func = func
 
+    # Called when a spell is accessed as an attribute
+    # (see the descriptor protocol)
     def __get__(self, instance, owner):
         if instance is None or owner is ModuleWrapper:
             spl = self
         else:
+            # Functions are descriptors, which allow methods to
+            # automatically bind the self argument.
+            # Here we have to manually invoke that.
             method = self.func.__get__(instance, owner)
             spl = Spell(method)
 
+        # Find the frame where the spell is being called.
+        # Ignore functions decorated with @no_spells
+        # or that aren't defined in source code we can find.
         frame = sys._getframe(1)
-        while frame.f_code in self.excluded or frame.f_code.co_filename.startswith('<'):
+        while frame.f_code in self._excluded_codes or frame.f_code.co_filename.startswith('<'):
             frame = frame.f_back
 
+        # If the spell is being accessed as part of a call,
+        # e.g. obj.<spell name>(...), get that Call node
         call = FileInfo.for_frame(frame)._attr_call_at(
             frame.f_lineno, self.func.__name__)
 
+        # The attribute is being accessed without calling it,
+        # e.g. just `f = obj.<spell name>`
+        # Return the spell as is so it can be called later
         if call is None:
             return spl
 
+        # The spell is being called. Bind the FrameInfo
         return spl.at(FrameInfo(frame, call))
 
     def at(self, frame_info):
+        """
+        Returns a callable that has frame_info already bound as the first argument
+        of the spell, and will accept only the other arguments normally.
+
+        Use this to use one spell inside another.
+        """
         return partial(self.func, frame_info)
 
+    # Called when the spell is called 'plainly', e.g. my_spell(foo),
+    # i.e. just as a variable without being an attribute of anything.
+    # Calls where the spell is an attribute go throuh __get__.
     def __call__(self, *args, **kwargs):
         frame = sys._getframe(1)
         call = FileInfo.for_frame(frame)._plain_call_at(frame, self)
@@ -269,17 +308,76 @@ spell = Spell
 
 
 def no_spells(func):
-    Spell.excluded.add(func.__code__)
+    """
+    Decorate a function with this to indicate that no spells are used
+    directly in this function, but the function may be used to
+    access a spell dynamically. Spells looking for where they are being
+    called from will skip the decorated function and look at the enclosing
+    frame instead.
+
+    For example, suppose you have a class with a method that is a spell,
+    e.g.:
+
+        class A:
+            @ magic_kwargs  # makes foo a spell
+            def foo(self, **kwargs):
+                pass
+
+    And another class that wraps the first:
+
+        class B:
+            def __init__(self):
+                self.a = A()
+
+    And you want users to call foo without going through A, you could write:
+
+            @no_spells
+            def foo(self, **kwargs):
+                self.a.foo(**kwargs)
+
+
+    Or, if you wanted to delegate all unknown attributes to `self.a`, you could write:
+
+            @no_spells
+            def __getattr__(self, item):
+                return getattr(self.a, item)
+
+    Then `B().foo(...)` will work as expected.
+    """
+
+    Spell._excluded_codes.add(func.__code__)
     return func
 
 
 class ModuleWrapper(wrapt.ObjectProxy):
+    """
+    Wrapper around a module that looks and behaves exactly like
+    the module it wraps, except that wrap_module attaches spells
+    to this class to make them work as descriptors.
+    """
+
     @no_spells
     def __getattribute__(self, item):
+        # This method shouldn't be needed, it's a workaround of a bug
+        # See https://github.com/GrahamDumpleton/wrapt/issues/101#issuecomment-299187363
         return object.__getattribute__(self, item)
 
 
 def wrap_module(module_name, globs):
+    """
+    Anywhere a spell is defined at the global level, put:
+
+        wrap_module(__name__, globals())
+
+    at the end of the module. This is needed for the following
+    code to work:
+
+        import mymodule
+
+        mymodule.some_spell(...)
+
+    """
+
     for name, value in globs.items():
         if isinstance(value, Spell):
             setattr(ModuleWrapper, name, value)
