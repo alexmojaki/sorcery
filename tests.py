@@ -32,6 +32,11 @@ class Foo(object):
         return set(kwargs.items()) | {self}
 
 
+@magic_kwargs
+def magic_only_kwarg(n, *, y):
+    return n, y
+
+
 class TestStuff(unittest.TestCase):
     def test_unpack_keys_basic(self):
         obj = SimpleNamespace(thing=SimpleNamespace())
@@ -145,14 +150,42 @@ x -
         foo = Foo()
         x = 1
         y = 2
+        w = 10
         self.assertEqual(foo.bar(x, y, z=3),
                          {('x', x), ('y', y), ('z', 3), foo})
+
+        self.assertEqual(magic_only_kwarg(x, y), (x, y))
+
+        @magic_kwargs
+        def spam(n, **kwargs):
+            return n, kwargs
+
+        self.assertEqual(spam(x, y, z=5),
+                         (x, dict(y=y, z=5)))
+
+        @magic_kwargs
+        def spam(n, m, **kwargs):
+            return n, m, kwargs
+
+        self.assertEqual(spam(x, w, y, z=5),
+                         (x, w, dict(y=y, z=5)))
+
+        with self.assertRaises(TypeError):
+            @magic_kwargs
+            def _(a=1):
+                print(a)
+
+        with self.assertRaises(TypeError):
+            @magic_kwargs
+            def _(*a):
+                print(a)
 
     def test_maybe(self):
         n = None
         assert maybe(n) is None
         self.assertIsNone(maybe(n))
         assert maybe(n).a.b.c()[4]().asd.asd()() is None
+        assert maybe(n)()()() is None
         assert maybe(0) is 0
         assert maybe({'a': 3})['a'] is 3
         assert maybe({'a': {'b': 3}})['a']['b'] is 3

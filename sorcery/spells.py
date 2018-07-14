@@ -1,5 +1,6 @@
 import ast
 import operator
+from inspect import signature
 from pprint import pprint
 from itertools import chain
 import wrapt
@@ -273,7 +274,7 @@ def dict_of(frame_info, *args, **kwargs):
 
     result = {
         node_name(arg): value
-        for arg, value in zip(frame_info.call.args, args)
+        for arg, value in zip(frame_info.call.args[-len(args):], args)
     }
     result.update(kwargs)
     return result
@@ -503,12 +504,57 @@ def select_from(frame_info, sql, params=(), cursor=None, where=None):
 
 
 def magic_kwargs(func):
+    """
+    Applying this decorator allows a function to interpret positional
+    arguments as keyword arguments, using the name of the positional argument
+    as the keyword. For example, given:
+
+        @magic_kwargs
+        def func(*, foo, bar, spam):
+
+    or
+
+        @magic_kwargs
+        def func(**kwargs):
+
+    then instead of:
+
+        func(foo=foo, bar=bar, spam=thing)
+
+    you can just write:
+
+        func(foo, bar, spam=thing)
+
+    Without the @magic_kwargs, the closest magical alternative would be:
+
+        func(**dict_of(foo, bar, spam=thing))
+
+    The function is not allowed to have optional positional parameters, e.g.
+    `def func(x=1)`, or *args.
+
+    This decorator makes the function a spell, which means the same restrictions
+    in how that function can be called as other spells.
+    """
+
+    args_count = 0
+    for param in signature(func).parameters.values():
+        if (param.kind == param.VAR_POSITIONAL or
+                param.kind == param.POSITIONAL_OR_KEYWORD and
+                param.default != param.empty):
+            raise TypeError(
+                'The type of the parameter %s is not allowed with @magic_kwargs'
+                % param.name)
+        if param.kind == param.POSITIONAL_OR_KEYWORD:
+            args_count += 1
+
     @wrapt.decorator
-    def wrapper(wrapped, _instance, args, kwargs):
-        # if instance is not None:
-        #     raise TypeError('magic_kwargs can only be applied to free functions, not methods')
-        full_kwargs = dict_of[args[0]](*args[1:], **kwargs)
-        return wrapped(**full_kwargs)
+    def wrapper(wrapped, instance, args, kwargs):
+        frame_info, *args = args
+        count = args_count - (instance is not None)  # account for self argument
+        normal_args = args[:count]
+        magic_args = args[count:]
+        full_kwargs = dict_of[frame_info](*magic_args, **kwargs)
+        return wrapped(*normal_args, **full_kwargs)
 
     return spell(wrapper(func))
 
