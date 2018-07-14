@@ -1,5 +1,7 @@
 # sorcery
 
+[![Build Status](https://travis-ci.org/alexmojaki/sorcery.svg?branch=master)](https://travis-ci.org/alexmojaki/sorcery) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/sorcery/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/sorcery?branch=master)
+
 This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things. Here are some quick examples (see the docstrings for more detail):
 
     from sorcery import assigned_names, unpack_keys, unpack_attrs, dict_of, print_args, call_with_name, delegate_to_attr, maybe, select_from
