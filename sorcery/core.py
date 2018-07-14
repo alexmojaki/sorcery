@@ -135,7 +135,7 @@ class FrameInfo(object):
 
     def assigned_names(self, *,
                        allow_one: bool = False,
-                       allow_loops: bool = False,
+                       allow_loops: bool = False
                        ) -> Tuple[Tuple[str], ast.AST]:
         """
         Calls the function assigned_names for this instance's Call node.
@@ -169,7 +169,7 @@ def statement_containing_node(node: ast.AST) -> ast.stmt:
 @lru_cache()
 def assigned_names(node, *,
                    allow_one: bool,
-                   allow_loops: bool,
+                   allow_loops: bool
                    ) -> Tuple[Tuple[str], ast.AST]:
     """
     Finds the names being assigned to in the nearest ancestor of
