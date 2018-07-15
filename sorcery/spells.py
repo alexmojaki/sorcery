@@ -1,5 +1,8 @@
+from __future__ import generator_stop
+
 import ast
 import operator
+from functools import lru_cache
 from inspect import signature
 from pprint import pprint
 from itertools import chain
@@ -559,6 +562,55 @@ def magic_kwargs(func):
         return wrapped(*normal_args, **full_kwargs)
 
     return spell(wrapper(func))
+
+
+@spell
+def switch(frame_info, val, _cases):
+    frame = frame_info.frame
+    switcher = _switcher(frame_info.call.args[1], frame.f_code)
+
+    def ev(k):
+        return eval(k, frame.f_globals, frame.f_locals)
+
+    def check(k):
+        return ev(k) == val
+
+    for key_code, value_code in switcher:
+        if isinstance(key_code, tuple):
+            test = any(map(check, key_code))
+        else:
+            test = check(key_code)
+        if test:
+            return ev(value_code)
+
+    raise KeyError(val)
+
+
+@lru_cache()
+def _switcher(cases, f_code):
+    if not (isinstance(cases, ast.Lambda) and
+            isinstance(cases.body, ast.Dict)):
+        raise TypeError('The second argument to switch must be a lambda with no arguments '
+                        'that returns a dictionary literal')
+
+    def comp(node):
+        return compile(ast.Expression(node),
+                       filename=f_code.co_filename,
+                       mode='eval',
+                       flags=generator_stop.compiler_flag)
+
+    result = []
+    for key, value in zip(cases.body.keys,
+                          cases.body.values):
+
+        if (isinstance(key, ast.Set) and
+                isinstance(key.elts[0], ast.Set)):
+            key_code = tuple(comp(k) for k in key.elts[0].elts)
+        else:
+            key_code = comp(key)
+
+        result.append((key_code, comp(value)))
+    return result
 
 
 wrap_module(__name__, globals())

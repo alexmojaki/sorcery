@@ -249,6 +249,39 @@ x -
         self.assertEqual(args_with_source(1 + 2, 3 * 4),
                          [("1 + 2", 3), ("3 * 4", 12)])
 
+    def test_switch(self):
+        result = spells.switch(2, lambda: {
+            1: 10,
+            2: 20,
+            1 / 0: 1 / 0
+        })
+        self.assertEqual(result, 20)
+
+        result = spells.switch(2, lambda: {
+            1: 10,
+            {{5, 2, 1 / 0}}: 20,
+            3: 1 / 0
+        })
+        self.assertEqual(result, 20)
+
+        with self.assertRaises(KeyError):
+            spells.switch(2, lambda: {
+                1: 10,
+                3: 30,
+            })
+
+        with self.assertRaises(TypeError):
+            spells.switch(2, {
+                1: 10,
+                2: 20,
+            })
+
+        with self.assertRaises(TypeError):
+            spells.switch(2, lambda: [{
+                1: 10,
+                2: 20,
+            }])
+
 
 if __name__ == '__main__':
     unittest.main()
