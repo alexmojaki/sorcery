@@ -11,6 +11,7 @@ This package lets you use and write callables called 'spells' that know where th
      * [`print_args`](#print_args)
      * [`call_with_name` and `delegate_to_attr`](#call_with_name-and-delegate_to_attr)
      * [`maybe`](#maybe)
+     * [`switch`](#switch)
      * [`select_from`](#select_from)
   * [Rules for casting spells](#rules-for-casting-spells)
      * [The easy version](#the-easy-version)
