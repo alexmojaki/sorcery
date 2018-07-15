@@ -210,7 +210,7 @@ are evaluated only as needed, in order, and only the matching value is evaluated
 
 Instead of:
 
-```
+```python
 cursor.execute('''
     SELECT foo, bar
     FROM my_table
@@ -224,7 +224,7 @@ for foo, bar in cursor:
 
 write:
 
-```
+```python
 for foo, bar in select_from('my_table', where=[spam, thing]):
     ...
 ```
