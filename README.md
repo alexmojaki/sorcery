@@ -4,6 +4,7 @@
 
 This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things.
 
+  * [Installation](#installation)
   * [Quick examples](#quick-examples)
      * [`assigned_names`](#assigned_names)
      * [`unpack_keys` and `unpack_attrs`](#unpack_keys-and-unpack_attrs)
@@ -20,6 +21,10 @@ This package lets you use and write callables called 'spells' that know where th
      * [Using other spells within spells](#using-other-spells-within-spells)
      * [Other helpers](#other-helpers)
   * [Should I actually use this library?](#should-i-actually-use-this-library)
+
+## Installation
+
+    pip install sorcery
 
 ## Quick examples
 
