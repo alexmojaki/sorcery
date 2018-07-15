@@ -166,6 +166,35 @@ write:
 
 If you want a slightly less magical version, consider [pymaybe](https://github.com/ekampf/pymaybe).
 
+### `switch`
+
+Instead of:
+
+```python
+if val == 1:
+    x = 1
+elif val == 2 or val == bar():
+    x = spam()
+elif val == dangerous_function():
+    x = spam() * 2
+else:
+    x = -1
+```
+
+write:
+
+```python
+x = switch(val, lambda: {
+    1: 1,
+    {{ 2, bar() }}: spam(),
+    dangerous_function(): spam() * 2
+}, default=-1)
+```
+
+This really will behave like the if/elif chain above. The dictionary is just
+some nice syntax, but no dictionary is ever actually created. The keys
+are evaluated only as needed, in order, and only the matching value is evaluated.
+
 ### `select_from`
 
 Instead of:
