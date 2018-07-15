@@ -2,9 +2,31 @@
 
 [![Build Status](https://travis-ci.org/alexmojaki/sorcery.svg?branch=master)](https://travis-ci.org/alexmojaki/sorcery) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/sorcery/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/sorcery?branch=master) [![Join the chat at https://gitter.im/python-sorcery/Lobby](https://badges.gitter.im/python-sorcery/Lobby.svg)](https://gitter.im/python-sorcery/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things. Here are some quick examples (see the docstrings for more detail):
+This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things.
 
-    from sorcery import assigned_names, unpack_keys, unpack_attrs, dict_of, print_args, call_with_name, delegate_to_attr, maybe, select_from
+  * [Quick examples](#quick-examples)
+     * [`assigned_names`](#assigned_names)
+     * [`unpack_keys` and `unpack_attrs`](#unpack_keys-and-unpack_attrs)
+     * [`dict_of`](#dict_of)
+     * [`print_args`](#print_args)
+     * [`call_with_name` and `delegate_to_attr`](#call_with_name-and-delegate_to_attr)
+     * [`maybe`](#maybe)
+     * [`select_from`](#select_from)
+  * [Rules for casting spells](#rules-for-casting-spells)
+     * [The easy version](#the-easy-version)
+     * [The advanced version](#the-advanced-version)
+  * [How to write your own spells](#how-to-write-your-own-spells)
+     * [Using other spells within spells](#using-other-spells-within-spells)
+     * [Other helpers](#other-helpers)
+  * [Should I actually use this library?](#should-i-actually-use-this-library)
+
+## Quick examples
+
+See the docstrings for more detail.
+
+    from sorcery import (assigned_names, unpack_keys, unpack_attrs,
+                         dict_of, print_args, call_with_name,
+                         delegate_to_attr, maybe, select_from)
 
 ### `assigned_names`
 
