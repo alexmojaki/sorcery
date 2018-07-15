@@ -565,7 +565,49 @@ def magic_kwargs(func):
 
 
 @spell
-def switch(frame_info, val, _cases):
+def switch(frame_info, val, _cases, *, default=_NO_DEFAULT):
+    """
+    Instead of:
+
+        if val == 1:
+            x = 1
+        elif val == 2 or val == bar():
+            x = spam()
+        elif val == dangerous_function():
+            x = spam() * 2
+        else:
+            x = -1
+
+    write:
+
+        x = switch(val, lambda: {
+            1: 1,
+            {{ 2, bar() }}: spam(),
+            dangerous_function(): spam() * 2
+        }, default=-1)
+
+    This really will behave like the if/elif chain above. The dictionary is just
+    some nice syntax, but no dictionary is ever actually created. The keys
+    are evaluated only as needed, in order, and only the matching value is evaluated.
+    The keys are not hashed, only compared for equality, so non-hashable keys like lists
+    are allowed.
+
+    If the default is not specified and no matching value is found, a KeyError is raised.
+
+    Note that `if val == 2 or val == bar()` is translated to `{{ 2, bar() }}`.
+    This is to allow emulating multiple case clauses for the same block as in
+    the switch construct in other languages. The double braces {{}} create a value
+    that's impossible to evaluate normally (a set containing a set) so that it's clear
+    we don't simply want to check `val == {{ 2, bar() }}`, whereas `{2, bar()}` would be
+    evaluated and checked normally.
+    As always, the contents are lazily evaluated and compared in order.
+
+    The keys and values are evaluated with the compiler statement
+    `from __future__ import generator_stop` in effect (which you should really be
+    considering using anyway if you're using Python < 3.7).
+
+    """
+
     frame = frame_info.frame
     switcher = _switcher(frame_info.call.args[1], frame.f_code)
 
@@ -583,7 +625,10 @@ def switch(frame_info, val, _cases):
         if test:
             return ev(value_code)
 
-    raise KeyError(val)
+    if default is _NO_DEFAULT:
+        raise KeyError(val)
+    else:
+        return default
 
 
 @lru_cache()
@@ -596,8 +641,7 @@ def _switcher(cases, f_code):
     def comp(node):
         return compile(ast.Expression(node),
                        filename=f_code.co_filename,
-                       mode='eval',
-                       flags=generator_stop.compiler_flag)
+                       mode='eval')
 
     result = []
     for key, value in zip(cases.body.keys,

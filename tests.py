@@ -270,6 +270,12 @@ x -
                 3: 30,
             })
 
+        result = spells.switch(2, lambda: {
+            1: 10,
+            3: 30,
+        }, default=-1)
+        self.assertEqual(result, -1)
+
         with self.assertRaises(TypeError):
             spells.switch(2, {
                 1: 10,
