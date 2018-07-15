@@ -102,37 +102,47 @@ The packages [q](https://github.com/zestyping/q) and [icecream](https://github.c
 
 Sometimes you want to create many similar methods which differ only in a string argument which is equal to the name of the method. Given this class:
 
-    class C:
-        def generic(self, method_name, *args, **kwargs):
-            ...
+```python
+class C:
+    def generic(self, method_name, *args, **kwargs):
+        ...
+```
 
 Inside the class definition, instead of:
 
-        def foo(self, x, y):
-            return self.generic('foo', x, y)
+```python
+    def foo(self, x, y):
+        return self.generic('foo', x, y)
 
-        def bar(self, z):
-            return self.generic('bar', z)
+    def bar(self, z):
+        return self.generic('bar', z)
+```
 
 write:
 
-        foo, bar = call_with_name(generic)
+```python
+    foo, bar = call_with_name(generic)
+```
 
 For a specific common use case:
 
-    class Wrapper:
-        def __init__(self, thing):
-            self.thing = thing
+```python
+class Wrapper:
+    def __init__(self, thing):
+        self.thing = thing
 
-        def foo(self, x, y):
-            return self.thing.foo(x, y)
+    def foo(self, x, y):
+        return self.thing.foo(x, y)
 
-        def bar(self, z):
-            return self.thing.bar(z)
+    def bar(self, z):
+        return self.thing.bar(z)
+```
 
 you can instead write:
 
-        foo, bar = delegate_to_attr('thing')
+```python
+    foo, bar = delegate_to_attr('thing')
+```
 
 For a more concrete example, here is a class that wraps a list and has all the usual list methods while ensuring that any methods which usually create a new list actually create a new wrapper:
 
@@ -200,20 +210,24 @@ are evaluated only as needed, in order, and only the matching value is evaluated
 
 Instead of:
 
-    cursor.execute('''
-        SELECT foo, bar
-        FROM my_table
-        WHERE spam = ?
-          AND thing = ?
-        ''', [spam, thing])
+```
+cursor.execute('''
+    SELECT foo, bar
+    FROM my_table
+    WHERE spam = ?
+      AND thing = ?
+    ''', [spam, thing])
 
-    for foo, bar in cursor:
-        ...
+for foo, bar in cursor:
+    ...
+```
 
 write:
 
-    for foo, bar in select_from('my_table', where=[spam, thing]):
-        ...
+```
+for foo, bar in select_from('my_table', where=[spam, thing]):
+    ...
+```
 
 ## Rules for casting spells
 
@@ -252,11 +266,13 @@ If the spell is used as an attribute of an object, e.g. `sorcery.dict_of` or as 
 
 Decorate a function with `@spell`. An instance of the class `FrameInfo` will be passed to the first argument of the function, while the other arguments will come from the call. For example:
 
-    from sorcery import spell, wrap_module
+```python
+from sorcery import spell, wrap_module
 
-    @spell
-    def my_spell(frame_info, foo):
-        ...
+@spell
+def my_spell(frame_info, foo):
+    ...
+```
 
 will be called as just `my_spell(foo)`.
 
