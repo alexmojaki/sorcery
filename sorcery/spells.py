@@ -2,13 +2,17 @@ from __future__ import generator_stop
 
 import ast
 import operator
+import sys
+import timeit as real_timeit
+import unittest
 from functools import lru_cache
 from inspect import signature
-from pprint import pprint
 from itertools import chain
+from pprint import pprint
+from textwrap import dedent
+
 import wrapt
 from littleutils import only
-
 from sorcery.core import spell, wrap_module, node_names, node_name
 
 _NO_DEFAULT = object()
@@ -656,5 +660,83 @@ def _switcher(cases, f_code):
         result.append((key_code, comp(value)))
     return result
 
+
+def _raise(e):
+    # for tests
+    raise e
+
+
+class TimerWithExc(real_timeit.Timer):
+    def timeit(self, *args, **kwargs):
+        try:
+            return super().timeit(*args, **kwargs)
+        except:
+            self.print_exc()
+            sys.exit(1)
+
+
+@spell
+def timeit(frame_info, repeat=5):
+    globs = frame_info.frame.f_globals
+    if globs is not frame_info.frame.f_locals:
+        _raise(ValueError('Must execute in global scope'))
+
+    setup = 'from %s import %s\n' % (
+        globs['__name__'],
+        ', '.join(globs.keys()),
+    )
+    if_stmt = frame_info.call.parent
+    stmts = [
+        dedent('\n'.join(map(frame_info.get_source, lines)))
+        for lines in [if_stmt.body, if_stmt.orelse]
+    ]
+
+    timers = [
+        TimerWithExc(stmt, setup)
+        for stmt in stmts
+    ]
+
+    # Check for exceptions
+    for timer in timers:
+        timer.timeit(1)
+
+    # Compare results
+    def get_result(stmt):
+        ns = {}
+        exec(setup + stmt, ns)
+        return ns.get('result')
+
+    unittest.TestCase('__init__').assertEqual(
+        *map(get_result, stmts),
+        '\n=====\nThe two methods yielded different results!'
+    )
+
+    # determine number so that 1 <= total time < 3
+    number = 1
+    for i in range(22):
+        number = 3 ** i
+        if timers[0].timeit(number) >= 1:
+            break
+
+    print('Number of trials:', number)
+    print()
+
+    def print_time(idx, el):
+        print('Method {}: {:.3f}'.format(
+            idx + 1, el))
+
+    times = [[] for _ in timers]
+    for _ in range(repeat):
+        for i, timer in enumerate(timers):
+            elapsed = timer.timeit(number)
+            print_time(i, elapsed)
+            times[i].append(elapsed)
+        print()
+
+    print('Best times:')
+    print('-----------')
+    for i, elapsed_list in enumerate(times):
+        print_time(i, min(elapsed_list))
+    
 
 wrap_module(__name__, globals())

@@ -1,11 +1,13 @@
 import inspect
 import sqlite3
+import sys
 import unittest
 from io import StringIO
-
-from littleutils import SimpleNamespace
+from time import sleep
+from unittest import mock
 
 import sorcery as spells
+from littleutils import SimpleNamespace
 from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe, args_with_source
 from sorcery.core import resolve_var
 
@@ -287,6 +289,82 @@ x -
                 1: 10,
                 2: 20,
             }])
+
+    def test_timeit_in_function(self):
+        with self.assertRaises(ValueError):
+            spells.timeit()
+
+
+class TestTimeit(unittest.TestCase):
+    def patch(self, *args, **kwargs):
+        patcher = mock.patch(*args, **kwargs)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def setUp(self):
+        self.patch('sorcery.spells._raise', lambda e: e)
+
+        def soft_exit(*_args):
+            raise ValueError()
+
+        self.patch('sys.exit', soft_exit)
+        self.patch('sys.stdout', StringIO())
+        self.patch('sys.stderr', StringIO())
+
+    def assert_usual_output(self):
+        self.assertRegex(
+            sys.stdout.getvalue(),
+            r"""
+Number of trials: 1
+
+Method 1: 1\.\d{3}
+Method 2: 1\.\d{3}
+
+Method 1: 1\.\d{3}
+Method 2: 1\.\d{3}
+
+Best times:
+-----------
+Method 1: 1\.\d{3}
+Method 2: 1\.\d{3}
+""".strip())
+
+    def test_no_result(self):
+        if spells.timeit(repeat=2):
+            sleep(1)
+        else:
+            sleep(1.1)
+        self.assert_usual_output()
+
+    # noinspection PyUnusedLocal
+    def test_matching_result(self):
+        if spells.timeit(repeat=2):
+            sleep(1)
+            result = 3
+        else:
+            sleep(1.1)
+            result = 3
+        self.assert_usual_output()
+
+    # noinspection PyUnusedLocal
+    def test_not_matching_result(self):
+        with self.assertRaises(AssertionError):
+            if spells.timeit():
+                result = 3
+            else:
+                result = 4
+
+    def test_exception(self):
+        with self.assertRaises(ValueError):
+            if spells.timeit():
+                print(1 / 0)
+            else:
+                pass
+
+        stderr = sys.stderr.getvalue()
+        self.assertIn('<timeit-src>', stderr)
+        self.assertIn('1 / 0', stderr)
+        self.assertIn('ZeroDivisionError: division by zero', stderr)
 
 
 if __name__ == '__main__':
