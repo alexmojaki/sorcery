@@ -182,6 +182,33 @@ write:
 
 If you want a slightly less magical version, consider [pymaybe](https://github.com/ekampf/pymaybe).
 
+### `timeit`
+
+Instead of
+
+```python
+import timeit
+
+nums = [3, 1, 2]
+setup = 'from __main__ import nums'
+
+print(timeit.repeat('min(nums)', setup))
+print(timeit.repeat('sorted(nums)[0]', setup))
+```
+
+write:
+
+```python
+import sorcery
+
+nums = [3, 1, 2]
+
+if sorcery.timeit():
+    result = min(nums)
+else:
+    result = sorted(nums)[0]
+```
+
 ### `switch`
 
 Instead of:

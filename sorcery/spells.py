@@ -678,6 +678,48 @@ class TimerWithExc(real_timeit.Timer):
 
 @spell
 def timeit(frame_info, repeat=5):
+    """
+    This function is for writing quick scripts for comparing the speeds
+    of two snippets of code that do the same thing. It's a nicer interface
+    to the standard timeit module that doesn't require putting your code in strings, so you can
+    use your IDE features, while still using the standard timeit for accuracy.
+    
+    Instead of
+    
+        import timeit
+    
+        nums = [3, 1, 2]
+        setup = 'from __main__ import nums'
+        
+        print(timeit.repeat('min(nums)', setup))
+        print(timeit.repeat('sorted(nums)[0]', setup))
+    
+    write:
+    
+        import sorcery
+    
+        nums = [3, 1, 2]
+        
+        if sorcery.timeit():
+            result = min(nums)
+        else:
+            result = sorted(nums)[0]
+            
+    The if statement is just syntax for denoting the two blocks of code
+    being tested. Some other nice features of this function over the standard
+    timeit:
+    
+    - Automatically determines a high enough 'number' argument.
+    - Asserts that any variable named 'result' is equal in both snippets,
+      for correctness testing. The variable should be present in both or
+      neither snippets.
+    - Nice formatting of results for easy comparison, including best times
+    - Source lines shown in tracebacks
+    
+    The spell must be called at the top level of a module, not inside
+    another function definition.
+    """
+    
     globs = frame_info.frame.f_globals
     if globs is not frame_info.frame.f_locals:
         _raise(ValueError('Must execute in global scope'))
