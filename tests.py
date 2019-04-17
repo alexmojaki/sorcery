@@ -1,6 +1,7 @@
 import inspect
 import sqlite3
 import sys
+import traceback
 import unittest
 from io import StringIO
 from time import sleep
@@ -303,13 +304,7 @@ class TestTimeit(unittest.TestCase):
 
     def setUp(self):
         self.patch('sorcery.spells._raise', lambda e: e)
-
-        def soft_exit(*_args):
-            raise ValueError()
-
-        self.patch('sys.exit', soft_exit)
         self.patch('sys.stdout', StringIO())
-        self.patch('sys.stderr', StringIO())
 
     def assert_usual_output(self):
         self.assertRegex(
@@ -355,16 +350,17 @@ Method 2: 1\.\d{3}
                 result = 4
 
     def test_exception(self):
-        with self.assertRaises(ValueError):
+        try:
             if spells.timeit():
                 print(1 / 0)
             else:
                 pass
+        except ZeroDivisionError:
+            traceback.print_exc(file=sys.stdout)
 
-        stderr = sys.stderr.getvalue()
-        self.assertIn('<timeit-src>', stderr)
-        self.assertIn('1 / 0', stderr)
-        self.assertIn('ZeroDivisionError: division by zero', stderr)
+        stdout = sys.stdout.getvalue()
+        self.assertIn('<timeit-src>', stdout)
+        self.assertIn('1 / 0', stdout)
 
 
 if __name__ == '__main__':

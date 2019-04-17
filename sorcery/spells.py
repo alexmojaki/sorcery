@@ -2,11 +2,11 @@ from __future__ import generator_stop
 
 import ast
 import operator
-import sys
 import timeit as real_timeit
 import unittest
 from functools import lru_cache
 from inspect import signature
+from io import StringIO
 from itertools import chain
 from pprint import pprint
 from textwrap import dedent
@@ -671,8 +671,9 @@ class TimerWithExc(real_timeit.Timer):
         try:
             return super().timeit(*args, **kwargs)
         except:
-            self.print_exc()
-            sys.exit(1)
+            # Sets up linecache for future tracebacks
+            self.print_exc(StringIO())
+            raise
 
 
 @spell
