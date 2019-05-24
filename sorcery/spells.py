@@ -13,7 +13,7 @@ from textwrap import dedent
 
 import wrapt
 from littleutils import only
-from sorcery.core import spell, wrap_module, node_names, node_name
+from sorcery.core import spell, node_names, node_name
 
 _NO_DEFAULT = object()
 
@@ -781,5 +781,3 @@ def timeit(frame_info, repeat=5):
     for i, elapsed_list in enumerate(times):
         print_time(i, min(elapsed_list))
     
-
-wrap_module(__name__, globals())
