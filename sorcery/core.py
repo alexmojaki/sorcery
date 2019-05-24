@@ -4,7 +4,6 @@ import inspect
 import sys
 import tokenize
 from collections import defaultdict
-from copy import deepcopy
 from functools import lru_cache, partial
 from types import CodeType
 from typing import Tuple, List
@@ -60,35 +59,26 @@ class FileInfo(object):
             statement_containing_node(node)
             for node in
             self.nodes_by_line[frame.f_lineno]}
-        sentinel = 'io8urthglkjdghvljusketgIYRFYUVGHFRTBGVHKGF78678957647698'
-        a_stmt = list(stmts)[0]
-        body = only(lst for lst in get_node_bodies(a_stmt.parent)
-                    if a_stmt in lst)
-        stmts = sorted(stmts, key=body.index)
+        return CallFinder(frame, stmts).result
+
+
+sentinel = 'io8urthglkjdghvljusketgIYRFYUVGHFRTBGVHKGF78678957647698'
+special_code_names = ('<listcomp>', '<dictcomp>', '<setcomp>', '<lambda>', '<genexpr>')
+
+
+class CallFinder(object):
+    def __init__(self, frame, stmts):
+        self.frame = frame
+        self.stmts = stmts
+        a_stmt = self.a_stmt = list(stmts)[0]
+        body = self.body = only(lst for lst in get_node_bodies(a_stmt.parent)
+                                if a_stmt in lst)
+        stmts = self.stmts = sorted(stmts, key=body.index)
 
         frame_offset_relative_to_stmt = frame.f_lasti
 
-        if frame.f_code.co_name not in ('<listcomp>', '<dictcomp>', '<setcomp>', '<lambda>', '<genexpr>'):
-
-            stmt_index = body.index(stmts[0])
-            body[stmt_index] = ast.Expr(value=ast.List(elts=[ast.Str(sentinel)], ctx=ast.Load()))
-
-            try:
-                ast.fix_missing_locations(a_stmt.parent)
-
-                parent_block = get_containing_block(a_stmt)
-                if isinstance(parent_block, ast.Module):
-                    module = parent_block
-                    instructions = _stmt_instructions(module, extract=False)
-                else:
-                    module = ast.Module(body=[parent_block])
-                    instructions = _stmt_instructions(module)
-
-                frame_offset_relative_to_stmt -= only([
-                    instruction for instruction in instructions
-                    if instruction.argval == sentinel]).offset
-            finally:
-                body[stmt_index] = stmts[0]
+        if frame.f_code.co_name not in special_code_names:
+            frame_offset_relative_to_stmt -= self.stmt_offset()
 
         function = ast.FunctionDef(
             name='<function>',
@@ -98,27 +88,28 @@ class FileInfo(object):
         )
         module = ast.Module(body=[function])
         ast.copy_location(function, stmts[0])
-        instruction_index = only([
-            i for i, instruction in enumerate(_call_instructions(_stmt_instructions(module, frame.f_code)))
-            if instruction.offset == frame_offset_relative_to_stmt])
+        instruction_index, instruction = only(
+            (i, instruction)
+            for i, instruction in enumerate(_call_instructions(_stmt_instructions(module, frame.f_code)))
+            if instruction.offset == frame_offset_relative_to_stmt
+        )
 
-        original_calls = [
+        calls = [
             node
             for stmt in stmts
             for node in ast.walk(stmt)
             if isinstance(node, ast.Call)
         ]
 
-        for i, call in enumerate(original_calls):
-            new_stmt = deepcopy(module)
-            new_calls = [
-                node for node in ast.walk(new_stmt)
-                if isinstance(node, ast.Call)
-            ]
+        for i, call in enumerate(calls):
             keyword = ast.keyword(arg=None, value=ast.Str(sentinel))
-            new_calls[i].keywords.append(keyword)
-            ast.fix_missing_locations(new_calls[i])
-            instructions = list(enumerate(_stmt_instructions(new_stmt, frame.f_code)))
+            calls[i].keywords.append(keyword)
+            try:
+                ast.fix_missing_locations(calls[i])
+                instructions = list(enumerate(_stmt_instructions(module, frame.f_code)))
+            finally:
+                calls[i].keywords.pop()
+            
             indices = [i for i, instruction in instructions if instruction.argval == sentinel]
             if not indices:
                 continue
@@ -137,7 +128,34 @@ class FileInfo(object):
         else:
             raise Exception
 
-        return original_calls[i]
+        self.result = calls[i]
+    
+    def stmt_offset(self):
+        body = self.body
+        stmts = self.stmts
+        a_stmt = self.a_stmt
+        
+        stmt_index = body.index(stmts[0])
+        body[stmt_index] = ast.Expr(value=ast.List(elts=[ast.Str(sentinel)], ctx=ast.Load()))
+
+        try:
+            ast.fix_missing_locations(a_stmt.parent)
+
+            parent_block = get_containing_block(a_stmt)
+            if isinstance(parent_block, ast.Module):
+                assert self.frame.f_code.co_name == '<module>'
+                module = parent_block
+                extract = False
+            else:
+                module = ast.Module(body=[parent_block])
+                extract = True
+            instructions = _stmt_instructions(module, extract=extract)
+
+            return only([
+                instruction for instruction in instructions
+                if instruction.argval == sentinel]).offset
+        finally:
+            body[stmt_index] = stmts[0]
 
 
 def get_node_bodies(node):
@@ -167,7 +185,7 @@ def _call_instructions(instructions):
 
 
 def find_code(root_code, matching):
-    if matching is None or matching.co_name not in ('<listcomp>', '<dictcomp>', '<setcomp>', '<lambda>', '<genexpr>'):
+    if matching is None or matching.co_name not in special_code_names:
         return root_code
 
     code_options = []  # type: List[CodeType]
