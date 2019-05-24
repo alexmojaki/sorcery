@@ -4,6 +4,7 @@ import inspect
 import sys
 import tokenize
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import lru_cache, partial
 from types import CodeType
 from typing import Tuple, List
@@ -58,7 +59,8 @@ class FileInfo(object):
         stmts = {
             statement_containing_node(node)
             for node in
-            self.nodes_by_line[frame.f_lineno]}
+            self.nodes_by_line[frame.f_lineno]
+        }
         return CallFinder(frame, stmts).result
 
 
@@ -69,30 +71,15 @@ special_code_names = ('<listcomp>', '<dictcomp>', '<setcomp>', '<lambda>', '<gen
 class CallFinder(object):
     def __init__(self, frame, stmts):
         self.frame = frame
-        self.stmts = stmts
         a_stmt = self.a_stmt = list(stmts)[0]
-        body = self.body = only(lst for lst in get_node_bodies(a_stmt.parent)
-                                if a_stmt in lst)
+        body = self.body = only(
+            lst
+            for lst in get_node_bodies(a_stmt.parent)
+            if a_stmt in lst
+        )
         stmts = self.stmts = sorted(stmts, key=body.index)
-
-        frame_offset_relative_to_stmt = frame.f_lasti
-
-        if frame.f_code.co_name not in special_code_names:
-            frame_offset_relative_to_stmt -= self.stmt_offset()
-
-        function = ast.FunctionDef(
-            name='<function>',
-            body=stmts,
-            args=ast.arguments(args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
-            decorator_list=[],
-        )
-        module = ast.Module(body=[function])
-        ast.copy_location(function, stmts[0])
-        instruction_index, instruction = only(
-            (i, instruction)
-            for i, instruction in enumerate(_call_instructions(_stmt_instructions(module, frame.f_code)))
-            if instruction.offset == frame_offset_relative_to_stmt
-        )
+        self.sandbox_module = self.make_sandbox_module()
+        call_instruction_index = self.get_call_instruction_index()
 
         calls = [
             node
@@ -103,42 +90,67 @@ class CallFinder(object):
 
         for i, call in enumerate(calls):
             keyword = ast.keyword(arg=None, value=ast.Str(sentinel))
-            calls[i].keywords.append(keyword)
-            try:
-                ast.fix_missing_locations(calls[i])
-                instructions = list(enumerate(_stmt_instructions(module, frame.f_code)))
-            finally:
-                calls[i].keywords.pop()
-            
-            indices = [i for i, instruction in instructions if instruction.argval == sentinel]
+            with tweak_list(call.keywords):
+                call.keywords.append(keyword)
+                ast.fix_missing_locations(call)
+                instructions = self.compile_instructions()
+
+            indices = [
+                i
+                for i, instruction in enumerate(instructions)
+                if instruction.argval == sentinel
+            ]
             if not indices:
                 continue
             arg_index = only(indices)
-            new_instruction = [instruction for i, instruction in instructions
-                               if i > arg_index
-                               if instruction.opname.startswith('CALL_')
-                               ][0]
+            new_instruction = _call_instructions(instructions[arg_index:])[0]
 
-            call_instructions = [inst for i, inst in instructions if inst.opname.startswith('CALL_')]
-            new_instruction_index = only([i for i, instruction in enumerate(call_instructions)
-                                          if instruction is new_instruction])
+            call_instructions = _call_instructions(instructions)
+            new_instruction_index = only(
+                i
+                for i, instruction in enumerate(call_instructions)
+                if instruction is new_instruction
+            )
 
-            if new_instruction_index == instruction_index:
+            if new_instruction_index == call_instruction_index:
+                self.result = call
                 break
-        else:
-            raise Exception
 
-        self.result = calls[i]
-    
+    def get_call_instruction_index(self):
+        frame_offset_relative_to_stmt = self.frame.f_lasti
+        if self.frame.f_code.co_name not in special_code_names:
+            frame_offset_relative_to_stmt -= self.stmt_offset()
+        instruction_index = only(
+            i
+            for i, instruction in enumerate(_call_instructions(self.compile_instructions()))
+            if instruction.offset == frame_offset_relative_to_stmt
+        )
+        return instruction_index
+
+    def make_sandbox_module(self):
+        function = ast.FunctionDef(
+            name='<function>',
+            body=self.stmts,
+            args=ast.arguments(args=[], kwonlyargs=[], kw_defaults=[], defaults=[]),
+            decorator_list=[],
+        )
+        ast.copy_location(function, self.stmts[0])
+        return ast.Module(body=[function])
+
     def stmt_offset(self):
         body = self.body
         stmts = self.stmts
         a_stmt = self.a_stmt
-        
-        stmt_index = body.index(stmts[0])
-        body[stmt_index] = ast.Expr(value=ast.List(elts=[ast.Str(sentinel)], ctx=ast.Load()))
 
-        try:
+        stmt_index = body.index(stmts[0])
+        expr = ast.Expr(
+            value=ast.List(
+                elts=[ast.Str(sentinel)],
+                ctx=ast.Load(),
+            ),
+        )
+        with tweak_list(body):
+            body[stmt_index] = expr
             ast.fix_missing_locations(a_stmt.parent)
 
             parent_block = get_containing_block(a_stmt)
@@ -151,11 +163,23 @@ class CallFinder(object):
                 extract = True
             instructions = _stmt_instructions(module, extract=extract)
 
-            return only([
-                instruction for instruction in instructions
-                if instruction.argval == sentinel]).offset
-        finally:
-            body[stmt_index] = stmts[0]
+            return only(
+                instruction
+                for instruction in instructions
+                if instruction.argval == sentinel
+            ).offset
+
+    def compile_instructions(self):
+        return _stmt_instructions(self.sandbox_module, matching_code=self.frame.f_code)
+
+
+@contextmanager
+def tweak_list(lst):
+    original = lst[:]
+    try:
+        yield
+    finally:
+        lst[:] = original
 
 
 def get_node_bodies(node):
@@ -181,7 +205,11 @@ def _stmt_instructions(module, matching_code=None, extract=True):
 
 
 def _call_instructions(instructions):
-    return (i for i in instructions if i.opname.startswith('CALL_'))
+    return [
+        instruction
+        for instruction in instructions
+        if instruction.opname.startswith(('CALL_FUNCTION', 'CALL_METHOD'))
+    ]
 
 
 def find_code(root_code, matching):
