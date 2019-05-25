@@ -321,8 +321,7 @@ x -
 
     def test_list_comprehension(self):
         str([tester(int(x)) for x in tester([1]) for _ in tester([2]) for __ in [3]])
-        with self.assertRaises(AssertionError):
-            str([[[tester(int(x)) for x in tester([1])] for _ in tester([2])] for __ in [3]])
+        str([[[tester(int(x)) for x in tester([1])] for _ in tester([2])] for __ in [3]])
         return str([(1, [
             (2, [
                 tester(int(x)) for x in tester([1])])
@@ -331,8 +330,7 @@ x -
 
     def test_lambda(self):
         self.assertEqual((lambda x: (tester(x), tester(x)))(tester(3)), (3, 3))
-        with self.assertRaises(AssertionError):
-            (lambda: (lambda: tester(1))())()
+        (lambda: (lambda: tester(1))())()
         self.assertEqual((lambda: [tester(x) for x in tester([1, 2])])(), [1, 2])
 
     def test_indirect_call(self):
