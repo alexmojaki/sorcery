@@ -3,22 +3,7 @@ import sys
 from functools import lru_cache, partial
 from typing import Tuple
 
-from asttokens import ASTTokens
-from executing_node import executing_node, FileInfo, only
-
-
-@lru_cache()
-def asttokens(file_info) -> ASTTokens:
-    """
-    Returns an ASTTokens object for getting the source of specific AST nodes.
-
-    See http://asttokens.readthedocs.io/en/latest/api-index.html
-    """
-    return ASTTokens(
-        file_info.source,
-        tree=file_info.tree,
-        filename=file_info.path,
-    )
+from executing_node import only, Source
 
 
 class FrameInfo(object):
@@ -51,18 +36,18 @@ class FrameInfo(object):
                               allow_loops=allow_loops)
 
     @property
-    def file_info(self):
+    def source(self):
         """
         Returns an instance of FileInfo for the file where this frame is executed.
         """
-        return FileInfo.for_frame(self.frame)
+        return Source.for_frame(self.frame)
 
     def get_source(self, node: ast.AST) -> str:
         """
         Returns a string containing the source code of an AST node in the
         same file as this call.
         """
-        return asttokens(self.file_info).get_text(node)
+        return self.source.asttokens().get_text(node)
 
 
 @lru_cache()
@@ -198,7 +183,7 @@ class Spell(object):
         while frame.f_code in self._excluded_codes or frame.f_code.co_filename.startswith('<'):
             frame = frame.f_back
 
-        call = executing_node(frame)
+        call = Source.executing_node(frame)
         return self.at(FrameInfo(frame, call))(*args, **kwargs)
 
     def __repr__(self):
