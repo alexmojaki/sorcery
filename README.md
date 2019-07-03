@@ -330,7 +330,6 @@ The module `sorcery.core` has these helper functions:
 - `node_names(node: ast.AST) -> Tuple[str]`
 - `node_name(node: ast.AST) -> str`
 - `statement_containing_node(node: ast.AST) -> ast.stmt:`
-- `resolve_var(frame, name: str)`
 
 `FrameInfo` has these methods:
 
