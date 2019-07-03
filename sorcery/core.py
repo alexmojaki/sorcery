@@ -3,7 +3,7 @@ import sys
 from functools import lru_cache, partial
 from typing import Tuple
 
-from executing_node import only, Source
+from executing import only, Source
 
 
 class FrameInfo(object):
@@ -20,9 +20,10 @@ class FrameInfo(object):
         to learn how to navigate the AST
     """
 
-    def __init__(self, frame, call: ast.Call):
-        self.frame = frame
-        self.call = call
+    def __init__(self, executing):
+        self.frame = executing.frame
+        self.executing = executing
+        self.call = executing.node
 
     def assigned_names(self, *,
                        allow_one: bool = False,
@@ -35,19 +36,12 @@ class FrameInfo(object):
                               allow_one=allow_one,
                               allow_loops=allow_loops)
 
-    @property
-    def source(self):
-        """
-        Returns an instance of FileInfo for the file where this frame is executed.
-        """
-        return Source.for_frame(self.frame)
-
     def get_source(self, node: ast.AST) -> str:
         """
         Returns a string containing the source code of an AST node in the
         same file as this call.
         """
-        return self.source.asttokens().get_text(node)
+        return self.executing.source.asttokens().get_text(node)
 
 
 @lru_cache()
@@ -183,8 +177,9 @@ class Spell(object):
         while frame.f_code in self._excluded_codes or frame.f_code.co_filename.startswith('<'):
             frame = frame.f_back
 
-        call = Source.executing_node(frame)
-        return self.at(FrameInfo(frame, call))(*args, **kwargs)
+        executing = Source.executing(frame)
+        assert executing.node, "Failed to find call node"
+        return self.at(FrameInfo(executing))(*args, **kwargs)
 
     def __repr__(self):
         return '%s(%r)' % (

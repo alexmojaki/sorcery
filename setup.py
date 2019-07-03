@@ -16,6 +16,7 @@ with open(init_path) as f:
 __version__ = re.search(r"__version__ = '([.\d]+)'", contents).group(1)
 
 install_requires = [
+    'executing',
     'littleutils>=0.2.1',
     'asttokens',
     'wrapt',
