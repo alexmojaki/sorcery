@@ -266,7 +266,7 @@ for foo, bar in select_from('my_table', where=[spam, thing]):
 Decorate a function with `@spell`. An instance of the class `FrameInfo` will be passed to the first argument of the function, while the other arguments will come from the call. For example:
 
 ```python
-from sorcery import spell, wrap_module
+from sorcery import spell
 
 @spell
 def my_spell(frame_info, foo):
@@ -278,12 +278,6 @@ will be called as just `my_spell(foo)`.
 The most important piece of information you are likely to use is `frame_info.call`. This is the `ast.Call` node where the spell is being called. [Here](https://greentreesnakes.readthedocs.io/en/latest/nodes.html) is some helpful documentation for navigating the AST. Every node also has a `parent` attribute added to it.
 
 `frame_info.frame` is the execution frame in which the spell is being called - see the [inspect](https://docs.python.org/3/library/inspect.html) docs for what you can do with this.
-
-At the bottom of the module where the spell is defined, add this line exactly:
-
-    wrap_module(__name__, globals())
-
-This should also be added to any other module where you want to be able to import the spell from and use it.
 
 Those are the essentials. See [the source](https://github.com/alexmojaki/sorcery/blob/master/sorcery/spells.py) of various spells for some examples, it's not that complicated.
 
