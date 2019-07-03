@@ -4,6 +4,8 @@
 
 This package lets you use and write callables called 'spells' that know where they're being called from and can use that information to do otherwise impossible things.
 
+Note: previously spells had a complicated implementation that placed limitations on how they could be called. Now spells are just a thin wrapper around [`executing`](https://github.com/alexmojaki/executing) which is much better. You may be better off using `executing` directly depending on your use case. This repo is now mostly just a fun collection of things to do with it.
+
   * [Installation](#installation)
   * [Quick examples](#quick-examples)
      * [`assigned_names`](#assigned_names)
@@ -15,9 +17,6 @@ This package lets you use and write callables called 'spells' that know where th
      * [`timeit`](#timeit)
      * [`switch`](#switch)
      * [`select_from`](#select_from)
-  * [Rules for casting spells](#rules-for-casting-spells)
-     * [The easy version](#the-easy-version)
-     * [The advanced version](#the-advanced-version)
   * [How to write your own spells](#how-to-write-your-own-spells)
      * [Using other spells within spells](#using-other-spells-within-spells)
      * [Other helpers](#other-helpers)
@@ -262,39 +261,6 @@ for foo, bar in select_from('my_table', where=[spam, thing]):
     ...
 ```
 
-## Rules for casting spells
-
-To allow spells to find where they're being called from, you have to abide by certain laws. Otherwise they may backfire.
-
-![when magic goes wrong](https://cdn.drawception.com/images/panels/2012/4-25/cLKH8cpLm9-16.png)
-
-### The easy version
-
-Here are rules you can follow that are as easy to remember and apply as possible:
-
-1. Use spells as simply and directly and possible. No indirection, renaming, or aliases.
-2. Don't use the name of a spell for anything else.
-3. Don't use the same spell more than once in a statement.
-4. Never put multiple statements on the same line separated by semicolons.
-
-### The advanced version
-
-If the above rules seem like a pain and you want to delve deeper into the magic, here is what you can actually do. You still have to avoid semicolons, but the other rules are a bit more complicated.
-
-If you want to define a function which calls a spell for you while offering the same interface as a spell (typically `__getattr__`, `__getattribute__`, or some other boilerplate code for indirection), see the decorator `no_spells`.
-
-If the spell is in its own variable, e.g. as a result of `from sorcery import dict_of` or `d = spells.dict_of`, then:
-
-- You can use any name, as the actual value of the variable will be checked to find the call.
-- You cannot use the same spell twice in the same statement, even if the statement spans several lines.
-
-If the spell is used as an attribute of an object, e.g. `sorcery.dict_of` or as a method of a class, then:
-
-- You must use the name of the original function.
-- You cannot use the same attribute name (even for the same spell) twice in the same line, although you can use them twice in the same statement if they're on different physical lines.
-- You cannot use the spell as an attribute of an object where it wasn't originally defined. For example, you cannot set `foo.dict_of = dict_of` and then call `foo.dict_of(...)`. This is because the spell has to be in the class of the object to make the descriptor protocol work.
-- For spells that are methods, you cannot use the unbound method of a class, e.g. `Foo.bar(Foo(), ...)`.
-
 ## How to write your own spells
 
 Decorate a function with `@spell`. An instance of the class `FrameInfo` will be passed to the first argument of the function, while the other arguments will come from the call. For example:
@@ -377,8 +343,6 @@ The module `sorcery.core` has these helper functions:
 - `assigned_names(...)`
 - `get_source(self, node: ast.AST) -> str`
 
-and the property `file_info` which returns an instance of `sorcery.core.FileInfo` (see the docstring of the class for what this has).
-
 ## Should I actually use this library?
 
 If you're still getting the hang of Python, no. This will lead to confusion about what is normal and expected in Python and will hamper your learning.
@@ -395,5 +359,6 @@ The point of this library is not just to be used in actual code. It's a way to e
 
 If you're interested in this stuff, particularly creative uses of the Python AST, you may also be interested in:
 
+- [executing](https://github.com/alexmojaki/executing) the backbone of this library
 - [birdseye](https://github.com/alexmojaki/birdseye) (another project of mine): a debugger which records the value of every expression
 - [MacroPy](https://github.com/lihaoyi/macropy): syntactic macros in Python by transforming the AST at import time

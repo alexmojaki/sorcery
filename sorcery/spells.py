@@ -540,9 +540,6 @@ def magic_kwargs(func):
 
     The function is not allowed to have optional positional parameters, e.g.
     `def func(x=1)`, or *args.
-
-    This decorator makes the function a spell, which means the same restrictions
-    in how that function can be called as other spells.
     """
 
     args_count = 0
