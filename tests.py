@@ -1,4 +1,4 @@
-import inspect
+import ast
 import sqlite3
 import sys
 import traceback
@@ -7,10 +7,10 @@ from io import StringIO
 from time import sleep
 from unittest import mock
 
+from littleutils import SimpleNamespace, only
+
 import sorcery as spells
-from littleutils import SimpleNamespace
-from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe, args_with_source
-from sorcery.core import resolve_var
+from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe, args_with_source, spell
 
 
 class MyListWrapper(object):
@@ -215,19 +215,12 @@ x -
             spells.dict_of(y),
         ], [dict(x=x), dict(y=y)])
 
-        with self.assertRaises(ValueError):
-            print([spells.dict_of(x), spells.dict_of(y)])
+        self.assertEqual([spells.dict_of(x), spells.dict_of(y)],
+                         [dict(x=x), dict(y=y)])
 
     def test_no_assignment(self):
         with self.assertRaises(TypeError):
             unpack_keys(dict(x=1, y=2))
-
-    def test_resolve_var(self):
-        x = 8
-        frame = inspect.currentframe()
-        self.assertEqual(resolve_var(frame, 'x'), x)
-        with self.assertRaises(NameError):
-            resolve_var(frame, 'y')
 
     def test_spell_repr(self):
         self.assertRegex(repr(spells.dict_of),
@@ -238,19 +231,30 @@ x -
         self.assertEqual(x, '_x')
         self.assertEqual(y, '_y')
 
-    def test_semicolon_error(self):
-        x, y = unpack_keys(dict(x=1, y=2))  # no error
-        assert x == 1 and y == 2
-        with self.assertRaises(Exception):
-            x, y = unpack_keys(
-
-                # Error caused by this line having multiple nodes
-                # from different statements
-                dict(x=1, y=2)); str(x)
+    # noinspection PyTrailingSemicolon
+    def test_semicolons(self):
+        # @formatter:off
+        tester(1); tester(2); tester(3)
+        tester(9
+               ); tester(
+            8); tester(
+            99
+        ); tester(33); tester([4,
+                               5, 6, [
+                               7]])
+        # @formatter:on
 
     def test_args_with_source(self):
         self.assertEqual(args_with_source(1 + 2, 3 * 4),
                          [("1 + 2", 3), ("3 * 4", 12)])
+        self.assertEqual(
+            args_with_source(
+                self.assertEqual(args_with_source(1 + 2), [("1 + 2", 3)])),
+            [(
+                'self.assertEqual(args_with_source(1 + 2), [("1 + 2", 3)])',
+                None,
+            )],
+        )
 
     def test_switch(self):
         result = spells.switch(2, lambda: {
@@ -294,6 +298,105 @@ x -
     def test_timeit_in_function(self):
         with self.assertRaises(ValueError):
             spells.timeit()
+
+    def test_decorator(self):
+        @empty_decorator
+        @decorator_with_args(tester('123'), x=int())
+        @tester(list(tuple([1, 2])), returns=empty_decorator)
+        @tester(
+            list(
+                tuple(
+                    [3, 4])),
+            returns=empty_decorator)
+        @empty_decorator
+        @decorator_with_args(
+            str(),
+            x=int())
+        @tester(list(tuple([5, 6])), returns=empty_decorator)
+        @tester(list(tuple([7, 8])), returns=empty_decorator)
+        @empty_decorator
+        @decorator_with_args(tester('sdf'), x=tester('123234'))
+        def foo():
+            pass
+
+    def test_list_comprehension(self):
+        str([tester(int(x)) for x in tester([1]) for _ in tester([2]) for __ in [3]])
+        str([[[tester(int(x)) for x in tester([1])] for _ in tester([2])] for __ in [3]])
+        return str([(1, [
+            (2, [
+                tester(int(x)) for x in tester([1])])
+            for _ in tester([2])])
+                    for __ in [3]])
+
+    def test_lambda(self):
+        self.assertEqual((lambda x: (tester(x), tester(x)))(tester(3)), (3, 3))
+        (lambda: (lambda: tester(1))())()
+        self.assertEqual((lambda: [tester(x) for x in tester([1, 2])])(), [1, 2])
+
+    def test_indirect_call(self):
+        dict(x=tester)['x'](tester)(3)
+
+    def test_compound_statements(self):
+        with self.assertRaises(TypeError):
+            try:
+                for _ in tester([2]):
+                    while tester(0):
+                        pass
+                    else:
+                        tester(4)
+                else:
+                    tester(5)
+                    raise ValueError
+            except tester(ValueError):
+                tester(9)
+                raise TypeError
+            finally:
+                tester(10)
+
+        # PyCharm getting confused somehow?
+        # noinspection PyUnreachableCode
+        str()
+
+        with self.assertRaises(tester(Exception)):
+            if tester(0):
+                pass
+            elif tester(0):
+                pass
+            elif tester(1 / 0):
+                pass
+
+    def test_generator(self):
+        def gen():
+            for x in [1, 2]:
+                yield tester(x)
+
+        gen2 = (tester(x) for x in tester([1, 2]))
+
+        assert list(gen()) == list(gen2) == [1, 2]
+
+
+@spell
+def tester(frame_info, arg, returns=None):
+    result = eval(
+        compile(ast.Expression(only(frame_info.call.args)), '<>', 'eval'),
+        frame_info.frame.f_globals,
+        frame_info.frame.f_locals,
+    )
+    assert result == arg, (result, arg)
+    if returns is None:
+        return arg
+    return returns
+
+
+assert tester([1, 2, 3]) == [1, 2, 3]
+
+
+def empty_decorator(f):
+    return f
+
+
+def decorator_with_args(*_, **__):
+    return empty_decorator
 
 
 class TestTimeit(unittest.TestCase):

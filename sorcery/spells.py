@@ -13,7 +13,7 @@ from textwrap import dedent
 
 import wrapt
 from littleutils import only
-from sorcery.core import spell, wrap_module, node_names, node_name
+from sorcery.core import spell, node_names, node_name
 
 _NO_DEFAULT = object()
 
@@ -540,9 +540,6 @@ def magic_kwargs(func):
 
     The function is not allowed to have optional positional parameters, e.g.
     `def func(x=1)`, or *args.
-
-    This decorator makes the function a spell, which means the same restrictions
-    in how that function can be called as other spells.
     """
 
     args_count = 0
@@ -781,5 +778,3 @@ def timeit(frame_info, repeat=5):
     for i, elapsed_list in enumerate(times):
         print_time(i, min(elapsed_list))
     
-
-wrap_module(__name__, globals())
