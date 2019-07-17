@@ -101,7 +101,7 @@ write:
 
 To write your own version of this (e.g. if you want to add colour), use `args_with_source`.
 
-The packages [q](https://github.com/zestyping/q) and [icecream](https://github.com/gruns/icecream) have similar functionality.
+If you like this, I recommend the `pp` function in the [`snoop`](https://github.com/alexmojaki/snoop) library.
 
 ### `call_with_name` and `delegate_to_attr`
 
@@ -353,5 +353,6 @@ The point of this library is not just to be used in actual code. It's a way to e
 If you're interested in this stuff, particularly creative uses of the Python AST, you may also be interested in:
 
 - [executing](https://github.com/alexmojaki/executing) the backbone of this library
-- [birdseye](https://github.com/alexmojaki/birdseye) (another project of mine): a debugger which records the value of every expression
+- [snoop](https://github.com/alexmojaki/snoop): a feature-rich and convenient debugging library which also uses `executing` as well as various other magic and tricks
+- [birdseye](https://github.com/alexmojaki/birdseye): a debugger which records the value of every expression
 - [MacroPy](https://github.com/lihaoyi/macropy): syntactic macros in Python by transforming the AST at import time
