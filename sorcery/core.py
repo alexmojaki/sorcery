@@ -174,7 +174,7 @@ class Spell(object):
     def __call__(self, *args, **kwargs):
         frame = sys._getframe(1)
 
-        while frame.f_code in self._excluded_codes or frame.f_code.co_filename.startswith('<'):
+        while frame.f_code in self._excluded_codes:
             frame = frame.f_back
 
         executing = Source.executing(frame)
