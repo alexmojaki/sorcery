@@ -76,7 +76,9 @@ def assigned_names(node, *,
 
         target = None
 
-        if isinstance(node, ast.Assign):
+        if isinstance(node, ast.NamedExpr):
+            target = node.target
+        elif isinstance(node, ast.Assign):
             target = only(node.targets)
         elif isinstance(node, (ast.For, ast.comprehension)) and allow_loops:
             target = node.target
