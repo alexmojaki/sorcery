@@ -5,6 +5,7 @@ from typing import Tuple
 
 from executing import only, Source
 
+NAMED_EXPR_SUPPORT = sys.version_info.major == 3 and sys.version_info.minor >= 8
 
 class FrameInfo(object):
     """
@@ -76,7 +77,7 @@ def assigned_names(node, *,
 
         target = None
 
-        if isinstance(node, ast.NamedExpr):
+        if NAMED_EXPR_SUPPORT and isinstance(node, ast.NamedExpr):
             target = node.target
         elif isinstance(node, ast.Assign):
             target = only(node.targets)
