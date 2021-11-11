@@ -2,6 +2,7 @@ from __future__ import generator_stop
 
 import ast
 import operator
+import sys
 import timeit as real_timeit
 import unittest
 from functools import lru_cache
@@ -16,6 +17,7 @@ from littleutils import only
 from sorcery.core import spell, node_names, node_name
 
 _NO_DEFAULT = object()
+PYPY36 = 'pypy' in sys.version.lower() and sys.version_info[:2] >= (3, 6)
 
 
 @spell
@@ -424,6 +426,8 @@ def maybe(frame_info, x):
                 isinstance(parent, ast.Subscript) and parent.value is node):
             break
         count += 1
+        # pypy does an extra .__name__ when calling
+        count += PYPY36 and isinstance(parent, ast.Call)
         node = parent
 
     if count == 0:
@@ -777,4 +781,3 @@ def timeit(frame_info, repeat=5):
     print('-----------')
     for i, elapsed_list in enumerate(times):
         print_time(i, min(elapsed_list))
-    
