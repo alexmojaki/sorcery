@@ -123,12 +123,13 @@ def node_name(node: ast.AST) -> str:
         return node.id
     elif isinstance(node, ast.Attribute):
         return node.attr
-    elif (isinstance(node, ast.Subscript) and
-          isinstance(node.slice, ast.Index) and
-          isinstance(node.slice.value, ast.Str)):
-        return node.slice.value.s
-    else:
-        raise TypeError('Cannot extract name from %s' % node)
+    elif isinstance(node, ast.Subscript):
+        index = node.slice
+        if isinstance(index, ast.Index):
+            index = index.value
+        if isinstance(index, ast.Str):
+            return index.s
+    raise TypeError('Cannot extract name from %s' % node)
 
 
 class Spell(object):
