@@ -17,7 +17,7 @@ from littleutils import only
 from sorcery.core import spell, node_names, node_name
 
 _NO_DEFAULT = object()
-PYPY36 = 'pypy' in sys.version.lower() and sys.version_info[:2] >= (3, 6)
+PYPY = 'pypy' in sys.version.lower()
 
 
 @spell
@@ -426,14 +426,17 @@ def maybe(frame_info, x):
                 isinstance(parent, ast.Subscript) and parent.value is node):
             break
         count += 1
-        # pypy does an extra .__name__ when calling
-        count += PYPY36 and isinstance(parent, ast.Call)
         node = parent
 
     if count == 0:
         return x
 
     return _Nothing(count)
+
+
+if PYPY:
+    def maybe(_):
+        raise NotImplementedError("maybe isn't supported on pypy`")
 
 
 @spell
