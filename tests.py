@@ -11,6 +11,7 @@ from littleutils import SimpleNamespace, only
 
 import sorcery as spells
 from sorcery import unpack_keys, unpack_attrs, print_args, magic_kwargs, maybe, args_with_source, spell
+from sorcery.spells import PYPY
 
 
 class MyListWrapper(object):
@@ -184,6 +185,11 @@ x -
                 print(a)
 
     def test_maybe(self):
+        if PYPY:
+            with self.assertRaises(NotImplementedError):
+                maybe(None)
+            return
+
         n = None
         assert maybe(n) is None
         self.assertIsNone(maybe(n))

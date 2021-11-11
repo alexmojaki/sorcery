@@ -2,6 +2,7 @@ from __future__ import generator_stop
 
 import ast
 import operator
+import sys
 import timeit as real_timeit
 import unittest
 from functools import lru_cache
@@ -16,6 +17,7 @@ from littleutils import only
 from sorcery.core import spell, node_names, node_name
 
 _NO_DEFAULT = object()
+PYPY = 'pypy' in sys.version.lower()
 
 
 @spell
@@ -432,6 +434,11 @@ def maybe(frame_info, x):
     return _Nothing(count)
 
 
+if PYPY:
+    def maybe(_):
+        raise NotImplementedError("maybe isn't supported on pypy`")
+
+
 @spell
 def select_from(frame_info, sql, params=(), cursor=None, where=None):
     """
@@ -777,4 +784,3 @@ def timeit(frame_info, repeat=5):
     print('-----------')
     for i, elapsed_list in enumerate(times):
         print_time(i, min(elapsed_list))
-    
